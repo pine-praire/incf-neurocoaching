@@ -1,0 +1,53 @@
+/* ─── INCF Neurocoaching — Design Tokens ─────────────────────────────────── */
+/* Source of truth. Never use raw hex in components — always reference a var. */
+
+:root {
+  /* Backgrounds */
+  --bg:         oklch(0.965 0.012 75);   /* #f7f2ea — кремовый основной фон */
+  --bg-deep:    oklch(0.945 0.014 75);   /* #f0e9dc — фон чипов в топбаре */
+  --surface:    oklch(0.995 0.006 75);   /* #fdfbf8 — карточки */
+  --surface-2:  oklch(0.985 0.008 75);   /* #f9f4ec */
+
+  /* Text */
+  --ink:        oklch(0.22 0.038 245);   /* #1c2233 — основной */
+  --ink-2:      oklch(0.36 0.035 245);   /* #3d4555 — вторичный */
+  --ink-soft:   oklch(0.48 0.025 245);   /* #5b6271 — параграфы */
+  --ink-mute:   oklch(0.62 0.018 245);   /* #888d99 — мета, подписи */
+  --line:       oklch(0.89 0.012 245);   /* #d8dadf — границы */
+  --line-soft:  oklch(0.93 0.010 245);   /* #e7e8ec */
+
+  /* Accent 1: терракота — CTA, активные элементы */
+  --terra:      oklch(0.62 0.14 35);     /* #c96442 */
+  --terra-2:    oklch(0.55 0.16 30);     /* #b5523a */
+  --terra-soft: oklch(0.94 0.04 35);     /* #f7e0d6 */
+  --terra-tint: oklch(0.97 0.025 35);    /* #fbeee6 */
+
+  /* Accent 2: сейдж — мозг, спокойствие */
+  --sage:       oklch(0.62 0.08 170);    /* #6da195 */
+  --sage-2:     oklch(0.50 0.09 170);    /* #4a7d72 */
+  --sage-soft:  oklch(0.93 0.03 170);    /* #d6e6e0 */
+  --sage-tint:  oklch(0.97 0.018 170);   /* #e9f1ed */
+
+  /* Accent 3: охра/золото — XP, бейджи, квест дня */
+  --gold:       oklch(0.78 0.13 80);     /* #d9b86a */
+  --gold-2:     oklch(0.66 0.14 70);     /* #b08841 */
+  --gold-soft:  oklch(0.94 0.045 80);    /* #f3e6c0 */
+  --gold-tint:  oklch(0.97 0.025 80);    /* #f7eed7 */
+
+  /* Тёмные акценты — сертификат, премиум */
+  --navy:       oklch(0.28 0.06 250);    /* #2c324a */
+  --navy-2:     oklch(0.20 0.05 250);    /* #1f2333 */
+
+  /* Shadows */
+  --shadow-sm:  0 1px 2px rgba(20,18,16,.05), 0 0 0 1px rgba(20,18,16,.03);
+  --shadow-md:  0 4px 16px -4px rgba(20,18,16,.08), 0 0 0 1px rgba(20,18,16,.04);
+  --shadow-lg:  0 18px 40px -16px rgba(20,18,16,.22), 0 0 0 1px rgba(20,18,16,.05);
+
+  /* Typography */
+  --font-display: 'Bricolage Grotesque', 'Manrope', system-ui, sans-serif;
+  --font-body:    'Manrope', system-ui, sans-serif;
+  --font-mono:    'JetBrains Mono', ui-monospace, monospace;
+--font-display: var(--font-bricolage), 'Manrope', system-ui, sans-serif;
+  --font-body:    var(--font-manrope), system-ui, sans-serif;
+  --font-mono:    var(--font-mono-var), ui-monospace, monospace;
+}
