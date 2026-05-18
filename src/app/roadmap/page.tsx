@@ -1,10 +1,10 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef, useLayoutEffect } from 'react'
 import {
-  LESSONS, FINALS, INTRO, BLOCKS, LEVELS,
-  computeLevel, computeXP, blockProgress,
-  type Lesson, type Final,
+  LESSONS, FINALS, INTRO,
+  computeXP, blockProgress,
+  type Lesson,
 } from '@/lib/course-data'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -18,7 +18,6 @@ interface Stamp {
   y: number
   kind: StampKind
   label?: string
-  icon?: string
   blockId?: string
 }
 
@@ -29,9 +28,26 @@ type OpenLesson = Lesson | {
   pre?: string; nativePitch?: string
 }
 
+// ─── Annotation card types ────────────────────────────────────────────────────
+
+type AnnotationType = 'fact' | 'alumni' | 'l1' | 'diagnostic'
+
+interface Annotation {
+  id: string
+  stampId: string
+  preferredSide: 'left' | 'right'
+  type: AnnotationType
+  content: React.ReactNode
+  compactIcon: string
+  compactLabel: string
+}
+
 // ─── Roadmap stamp positions (world: 1080 × 1700) ────────────────────────────
 
 const W = 1080, H = 1700
+const CARD_WIDTH = 230
+const CARD_GAP = 28
+const SAFE = 12
 
 const STAMPS: Stamp[] = [
   { id: 'intro',  x: 540, y: 70,   kind: 'intro' },
@@ -50,6 +66,21 @@ const STAMPS: Stamp[] = [
   { id: 'cert',   x: 540, y: 1620, kind: 'cert',   label: 'Сертификат' },
 ]
 
+// ─── Collision-aware card position ───────────────────────────────────────────
+
+function getSideCardLeft(markerX: number, mapWidth: number, preferred: 'left' | 'right'): number {
+  const leftCandidate  = markerX - CARD_WIDTH - CARD_GAP
+  const rightCandidate = markerX + CARD_GAP
+  const fitsLeft  = leftCandidate >= SAFE
+  const fitsRight = rightCandidate + CARD_WIDTH <= mapWidth - SAFE
+
+  if (preferred === 'left'  && fitsLeft)  return leftCandidate
+  if (preferred === 'right' && fitsRight) return rightCandidate
+  if (fitsLeft)  return leftCandidate
+  if (fitsRight) return rightCandidate
+  return Math.max(SAFE, Math.min(markerX - CARD_WIDTH / 2, mapWidth - CARD_WIDTH - SAFE))
+}
+
 // ─── SVG path helper ─────────────────────────────────────────────────────────
 
 function pathBetween(a: Stamp, b: Stamp): string {
@@ -62,19 +93,17 @@ function pathBetween(a: Stamp, b: Stamp): string {
 
 function Eyebrow({ children, color = 'var(--terra-2)' }: { children: React.ReactNode; color?: string }) {
   return (
-    <span style={{
-      fontSize: 9.5, fontWeight: 700, letterSpacing: '.14em',
-      textTransform: 'uppercase', color,
-    }}>{children}</span>
+    <span style={{ fontSize: 9.5, fontWeight: 700, letterSpacing: '.14em', textTransform: 'uppercase', color }}>
+      {children}
+    </span>
   )
 }
 
 function MonoChip({ children }: { children: React.ReactNode }) {
   return (
-    <span style={{
-      fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--ink-mute)',
-      background: 'rgba(0,0,0,.04)', padding: '2px 7px', borderRadius: 4,
-    }}>{children}</span>
+    <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--ink-mute)', background: 'rgba(0,0,0,.04)', padding: '2px 7px', borderRadius: 4 }}>
+      {children}
+    </span>
   )
 }
 
@@ -90,7 +119,7 @@ function FunFact({ tag, text, tone = 'sage', compact = false }: {
   return (
     <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: compact ? '10px 12px' : '14px 16px', background: t.bg, border: `1px solid ${t.line}`, borderRadius: 12 }}>
       <div style={{ flexShrink: 0, width: compact ? 28 : 32, height: compact ? 28 : 32, borderRadius: 999, background: '#fff', display: 'grid', placeItems: 'center', boxShadow: '0 1px 2px rgba(0,0,0,.06)' }}>
-        <span style={{ fontSize: compact ? 16 : 18, color: t.ink }}>🧠</span>
+        <span style={{ fontSize: compact ? 16 : 18 }}>💡</span>
       </div>
       <div>
         <Eyebrow color={t.ink}>{tag}</Eyebrow>
@@ -103,13 +132,160 @@ function FunFact({ tag, text, tone = 'sage', compact = false }: {
 function NativeMention({ moduleRef }: { moduleRef: string }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', background: 'rgba(255,255,255,.75)', backdropFilter: 'blur(4px)', border: '1px dashed var(--line)', borderRadius: 12 }}>
-      <div style={{ width: 28, height: 28, borderRadius: 8, background: 'var(--terra-tint)', color: 'var(--terra-2)', display: 'grid', placeItems: 'center', flexShrink: 0, fontSize: 15 }}>✨</div>
+      <div style={{ width: 28, height: 28, borderRadius: 8, background: 'var(--terra-tint)', color: 'var(--terra-2)', display: 'grid', placeItems: 'center', flexShrink: 0, fontSize: 15 }}>🎓</div>
       <p style={{ flex: 1, fontSize: 12, color: 'var(--ink-2)', margin: 0, lineHeight: 1.4 }}>
         Эта тема — глубже в <strong style={{ color: 'var(--ink)' }}>Нейрокоучинг L1</strong>, модуль {moduleRef}. Пять месяцев, четыре дисциплины, сертификат.
       </p>
       <button style={{ background: 'none', border: 'none', color: 'var(--terra-2)', fontSize: 11, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }}>
         Подробнее →
       </button>
+    </div>
+  )
+}
+
+function AlumniCard({ name, role, quote }: { name: string; role: string; quote: string }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 12, boxShadow: 'var(--shadow-sm)' }}>
+      <div style={{ width: 36, height: 36, borderRadius: 999, background: 'repeating-linear-gradient(135deg,oklch(0.92 0.012 75) 0 5px,oklch(0.96 0.01 75) 5px 10px)', border: '1px solid var(--line)', flexShrink: 0 }} />
+      <div style={{ minWidth: 0 }}>
+        <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--ink)' }}>{name} <span style={{ fontWeight: 500, color: 'var(--ink-mute)' }}>· {role}</span></div>
+        <div style={{ fontSize: 11, color: 'var(--ink-2)', marginTop: 1 }}>💬 {quote}</div>
+      </div>
+    </div>
+  )
+}
+
+function DiagnosticCard() {
+  return (
+    <div style={{ padding: 12, borderRadius: 12, border: '1px solid var(--terra-soft)', background: 'var(--terra-tint)' }}>
+      <Eyebrow>📅 Откроется после теста</Eyebrow>
+      <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)', marginTop: 6 }}>Бесплатная диагностика 30 мин</div>
+      <div style={{ fontSize: 11.5, color: 'var(--ink-soft)', marginTop: 3 }}>С Александрой. Разбираем вашу точку А и план из 3 шагов.</div>
+    </div>
+  )
+}
+
+// ─── Annotation definitions ───────────────────────────────────────────────────
+
+const ANNOTATIONS: Annotation[] = [
+  {
+    id: 'a1', stampId: 'l1', preferredSide: 'right', type: 'fact',
+    compactIcon: '💡', compactLabel: 'Этимология',
+    content: <FunFact tag="Этимология" text='Слово «коучинг» — из венгерского "kocsi szekér". Дословно — то, что довозит до цели.' tone="sage" compact />,
+  },
+  {
+    id: 'a2', stampId: 'l2', preferredSide: 'left', type: 'alumni',
+    compactIcon: '💬', compactLabel: 'Татьяна',
+    content: <AlumniCard name="Татьяна Азарова" role="скрам-мастер → коуч" quote="Полгода назад прошла этот же курс. 8 клиентов в месяц." />,
+  },
+  {
+    id: 'a3', stampId: 'l4', preferredSide: 'left', type: 'fact',
+    compactIcon: '💡', compactLabel: 'Нейронаука',
+    content: <FunFact tag="Нейронаука" text="До 95% решений мы принимаем неосознанно. Кора рационализирует уже принятое — постфактум." tone="gold" compact />,
+  },
+  {
+    id: 'a4', stampId: 'l5', preferredSide: 'right', type: 'l1',
+    compactIcon: '🎓', compactLabel: 'L1',
+    content: <NativeMention moduleRef="«Когнитивные искажения» (4 неделя)" />,
+  },
+  {
+    id: 'a5', stampId: 'l7', preferredSide: 'right', type: 'alumni',
+    compactIcon: '💬', compactLabel: 'Анастасия',
+    content: <AlumniCard name="Анастасия Тарунтаева" role="врач → нейрокоуч" quote="«Стресс и эмоции» — урок, после которого всё изменилось." />,
+  },
+  {
+    id: 'a6', stampId: 'test', preferredSide: 'left', type: 'diagnostic',
+    compactIcon: '📅', compactLabel: 'Диагностика',
+    content: <DiagnosticCard />,
+  },
+]
+
+// ─── Adaptive Annotation Card ─────────────────────────────────────────────────
+
+function AnnotationCard({
+  annotation, stamp, mapWidth, isCompact,
+}: {
+  annotation: Annotation
+  stamp: Stamp
+  mapWidth: number
+  isCompact: boolean
+}) {
+  const [popoverOpen, setPopoverOpen] = useState(false)
+
+  const markerX = (stamp.x / W) * mapWidth
+  const topPct = (stamp.y / H) * 100
+
+  // Close popover on outside click
+  useEffect(() => {
+    if (!popoverOpen) return
+    const handler = () => setPopoverOpen(false)
+    window.addEventListener('click', handler)
+    return () => window.removeEventListener('click', handler)
+  }, [popoverOpen])
+
+  if (isCompact) {
+    // Compact mode: small icon button near the stamp, popover on click
+const rawIconLeft = annotation.preferredSide === 'right'
+      ? markerX + 56
+      : markerX - 56 - 40
+    const iconLeft = Math.max(SAFE, Math.min(rawIconLeft, mapWidth - 40 - SAFE))
+
+    return (
+      <div style={{ position: 'absolute', left: iconLeft, top: `calc(${topPct}% - 20px)`, zIndex: 5 }}>
+        <button
+          onClick={e => { e.stopPropagation(); setPopoverOpen(p => !p) }}
+          aria-label={annotation.compactLabel}
+          style={{
+            width: 40, height: 40, borderRadius: 999,
+            background: 'var(--surface)', border: '2px solid var(--line)',
+            boxShadow: 'var(--shadow-md)',
+            display: 'grid', placeItems: 'center',
+            cursor: 'pointer', fontSize: 20,
+            transition: 'transform .15s, box-shadow .15s',
+          }}
+        >
+          {annotation.compactIcon}
+        </button>
+        {popoverOpen && (
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{
+              position: 'absolute',
+              left: '50%',
+              top: 48,
+              transform: 'translateX(-50%)',
+              width: 'min(260px, calc(100vw - 48px))',
+              background: 'var(--surface)',
+              border: '1px solid var(--line)',
+              borderRadius: 12,
+              boxShadow: 'var(--shadow-lg)',
+              zIndex: 20,
+              padding: 4,
+            }}
+          >
+            {annotation.content}
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  // Desktop mode: full card with collision-aware positioning
+  const leftPx = getSideCardLeft(markerX, mapWidth, annotation.preferredSide)
+  const connectorSide = leftPx < markerX ? 'right' : 'left'
+
+  return (
+    <div style={{ position: 'absolute', left: leftPx, top: `calc(${topPct}% - 22px)`, width: CARD_WIDTH, zIndex: 2 }}>
+      {/* Dashed connector line */}
+      <div style={{
+        position: 'absolute', top: 28,
+        [connectorSide]: '100%',
+        width: Math.abs(markerX - leftPx - (connectorSide === 'right' ? CARD_WIDTH : 0)),
+        height: 1.5,
+        background: 'repeating-linear-gradient(90deg, var(--ink-mute) 0 4px, transparent 4px 8px)',
+        opacity: 0.4,
+      }} />
+      {annotation.content}
     </div>
   )
 }
@@ -135,45 +311,26 @@ function LessonModal({ lesson, completed, answers, onClose, onMarkDone, onUndo, 
   }, [onClose])
 
   return (
-    <div
-      onClick={onClose}
-      role="dialog"
-      aria-modal="true"
-      aria-label={`Урок: ${lesson.title}`}
-      style={{ position: 'fixed', inset: 0, zIndex: 50, background: 'rgba(20,18,16,.55)', backdropFilter: 'blur(4px)', display: 'grid', placeItems: 'center', padding: 24, boxSizing: 'border-box' }}
-    >
-      <div
-        onClick={e => e.stopPropagation()}
-        style={{ width: '100%', maxWidth: 740, maxHeight: '92vh', background: 'var(--surface)', borderRadius: 18, boxShadow: 'var(--shadow-lg)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}
-      >
-        {/* Header */}
+    <div onClick={onClose} role="dialog" aria-modal="true" aria-label={`Урок: ${lesson.title}`}
+      style={{ position: 'fixed', inset: 0, zIndex: 50, background: 'rgba(20,18,16,.55)', backdropFilter: 'blur(4px)', display: 'grid', placeItems: 'center', padding: 24, boxSizing: 'border-box' }}>
+      <div onClick={e => e.stopPropagation()}
+        style={{ width: '100%', maxWidth: 740, maxHeight: '92vh', background: 'var(--surface)', borderRadius: 18, boxShadow: 'var(--shadow-lg)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '13px 18px', borderBottom: '1px solid var(--line)', flexShrink: 0 }}>
-          <Eyebrow>
-            {typeof lesson.n === 'number' && lesson.n > 0 ? `Урок ${lesson.n}` : 'Финал'} · {lesson.lecturer}
-          </Eyebrow>
+          <Eyebrow>{typeof lesson.n === 'number' && lesson.n > 0 ? `Урок ${lesson.n}` : 'Финал'} · {lesson.lecturer}</Eyebrow>
           <MonoChip>{lesson.duration} мин · +{lesson.xp} XP</MonoChip>
-          <button
-            onClick={onClose}
-            aria-label="Закрыть"
-            style={{ marginLeft: 'auto', background: 'none', border: '1px solid var(--line)', borderRadius: 8, padding: 5, cursor: 'pointer', color: 'var(--ink-mute)', display: 'grid', placeItems: 'center', fontSize: 16 }}
-          >✕</button>
+          <button onClick={onClose} aria-label="Закрыть"
+            style={{ marginLeft: 'auto', background: 'none', border: '1px solid var(--line)', borderRadius: 8, padding: 5, cursor: 'pointer', color: 'var(--ink-mute)', display: 'grid', placeItems: 'center', fontSize: 16 }}>✕</button>
         </div>
-
-        {/* Body */}
         <div style={{ overflow: 'auto', padding: 20, display: 'flex', flexDirection: 'column', gap: 14 }}>
           <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 24, fontWeight: 600, letterSpacing: '-0.01em', color: 'var(--ink)', margin: 0 }}>{lesson.title}</h2>
           {lesson.subtitle && <p style={{ color: 'var(--ink-soft)', fontSize: 13.5, margin: '-6px 0 0' }}>{lesson.subtitle}</p>}
-
-          {/* Video placeholder */}
           <div style={{ aspectRatio: '16/9', borderRadius: 12, overflow: 'hidden', background: 'oklch(0.18 0.02 250)', backgroundImage: 'repeating-linear-gradient(135deg,oklch(0.18 0.02 250) 0 8px,oklch(0.22 0.02 250) 8px 16px)', display: 'grid', placeItems: 'center', color: '#f5f1e8' }}>
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
               <div style={{ width: 52, height: 52, borderRadius: 999, background: '#fff', display: 'grid', placeItems: 'center', fontSize: 28, color: '#1a1a1a' }}>▶</div>
               <MonoChip>YOUTUBE · {lesson.id.toUpperCase()} · {lesson.duration}:00</MonoChip>
             </div>
           </div>
-
           <FunFact tag={lesson.factTag} text={lesson.fact} tone="sage" />
-
           {lesson.task && (
             <div style={{ background: 'var(--bg-deep)', border: '1px solid var(--line)', borderRadius: 12, padding: 14 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 8 }}>
@@ -181,19 +338,14 @@ function LessonModal({ lesson, completed, answers, onClose, onMarkDone, onUndo, 
                 <Eyebrow color="var(--ink-2)">Задание · 1 предложение</Eyebrow>
               </div>
               <p style={{ fontSize: 13.5, color: 'var(--ink)', marginBottom: 10 }}>{lesson.task}</p>
-              <textarea
-                value={answer}
-                onChange={e => onSetAnswer(lesson.id, e.target.value)}
-                placeholder="Можно одним предложением или голосовым в боте"
-                style={{ width: '100%', minHeight: 64, resize: 'vertical', padding: 10, fontFamily: 'var(--font-body)', fontSize: 13.5, color: 'var(--ink)', background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 8, outline: 'none', boxSizing: 'border-box' }}
-              />
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6, fontSize: 11.5, color: 'var(--ink-mute)' }}>
-                <span>🎤 или голосовым в боте</span>
+              <textarea value={answer} onChange={e => onSetAnswer(lesson.id, e.target.value)}
+                placeholder="Напишите одним предложением"
+                style={{ width: '100%', minHeight: 64, resize: 'vertical', padding: 10, fontFamily: 'var(--font-body)', fontSize: 13.5, color: 'var(--ink)', background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 8, outline: 'none', boxSizing: 'border-box' }} />
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 6, fontSize: 11.5, color: 'var(--ink-mute)' }}>
                 <span>{answer.length} симв.</span>
               </div>
             </div>
           )}
-
           {lesson.pre && (
             <div style={{ display: 'flex', gap: 10, padding: '11px 13px', border: '1px dashed var(--terra-2)', borderRadius: 12, background: 'var(--terra-tint)' }}>
               <span style={{ fontSize: 18, flexShrink: 0, marginTop: 1 }}>🕐</span>
@@ -203,32 +355,23 @@ function LessonModal({ lesson, completed, answers, onClose, onMarkDone, onUndo, 
               </div>
             </div>
           )}
-
           {'nativePitch' in lesson && lesson.nativePitch && (
             <NativeMention moduleRef={lesson.nativePitch} />
           )}
-
-          {/* CTA */}
           <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginTop: 4 }}>
             {!done ? (
-              <button
-                onClick={() => onMarkDone(lesson.id)}
-                style={{ display: 'inline-flex', alignItems: 'center', gap: 7, background: 'var(--terra-2)', color: '#fff', border: 'none', padding: '10px 18px', borderRadius: 10, fontWeight: 600, fontSize: 13, fontFamily: 'var(--font-body)', cursor: 'pointer', boxShadow: '0 6px 16px -6px rgba(180,80,50,.5)' }}
-              >
-                ✓ Я сделала — +{lesson.xp} XP
+              <button onClick={() => onMarkDone(lesson.id)}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 7, background: 'var(--terra-2)', color: '#fff', border: 'none', padding: '10px 18px', borderRadius: 10, fontWeight: 600, fontSize: 13, fontFamily: 'var(--font-body)', cursor: 'pointer', boxShadow: '0 6px 16px -6px rgba(180,80,50,.5)' }}>
+                ✓ Готово — +{lesson.xp} XP
               </button>
             ) : (
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--sage-2)', fontWeight: 600, fontSize: 13.5 }}>
                 ✅ Урок засчитан · +{lesson.xp} XP
-                <button onClick={() => onUndo(lesson.id)} style={{ background: 'none', border: 'none', color: 'var(--ink-mute)', fontSize: 12, cursor: 'pointer', padding: '4px 8px' }}>
-                  отменить
-                </button>
+                <button onClick={() => onUndo(lesson.id)} style={{ background: 'none', border: 'none', color: 'var(--ink-mute)', fontSize: 12, cursor: 'pointer', padding: '4px 8px' }}>отменить</button>
               </div>
             )}
-            <button
-              onClick={onClose}
-              style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'transparent', color: 'var(--ink)', border: '1px solid var(--line)', padding: '9px 14px', borderRadius: 10, fontWeight: 600, fontSize: 13, fontFamily: 'var(--font-body)', cursor: 'pointer' }}
-            >
+            <button onClick={onClose}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'transparent', color: 'var(--ink)', border: '1px solid var(--line)', padding: '9px 14px', borderRadius: 10, fontWeight: 600, fontSize: 13, fontFamily: 'var(--font-body)', cursor: 'pointer' }}>
               Закрыть
             </button>
           </div>
@@ -241,15 +384,22 @@ function LessonModal({ lesson, completed, answers, onClose, onMarkDone, onUndo, 
 // ─── TopBar ───────────────────────────────────────────────────────────────────
 
 function TopBar({ xp, streak, completed }: { xp: number; streak: number; completed: Set<string> }) {
-  const level = computeLevel(xp)
-  const lessonsDone = LESSONS.filter(l => completed.has(l.id)).length
-  const finalsDone = FINALS.filter(f => completed.has(f.id)).length
+  const level = (() => {
+    const levels = [
+      { min: 0, title: 'Любопытный новичок' }, { min: 80, title: 'Исследователь мозга' },
+      { min: 220, title: 'Практик' }, { min: 400, title: 'Уверенный коуч' }, { min: 620, title: 'Нейрокоуч' },
+    ]
+    let idx = 0
+    for (let i = 0; i < levels.length; i++) if (xp >= levels[i].min) idx = i
+    return { idx, title: levels[idx].title }
+  })()
+
+  const done = LESSONS.filter(l => completed.has(l.id)).length + FINALS.filter(f => completed.has(f.id)).length
   const total = LESSONS.length + FINALS.length
-  const done = lessonsDone + finalsDone
   const overall = total > 0 ? done / total : 0
 
   return (
-<header style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '13px 24px', background: 'var(--surface)', borderBottom: '1px solid var(--line)', flexShrink: 0, position: 'sticky', top: 0, zIndex: 40, backdropFilter: 'blur(8px)' }}>      {/* Logo */}
+    <header style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '13px 24px', background: 'var(--surface)', borderBottom: '1px solid var(--line)', flexShrink: 0, position: 'sticky', top: 0, zIndex: 40, backdropFilter: 'blur(8px)' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 9, minWidth: 0 }}>
         <div style={{ width: 32, height: 32, borderRadius: 8, background: 'var(--terra-2)', color: '#fff', display: 'grid', placeItems: 'center', fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 14, flexShrink: 0 }}>i</div>
         <div>
@@ -257,8 +407,6 @@ function TopBar({ xp, streak, completed }: { xp: number; streak: number; complet
           <div style={{ fontFamily: 'var(--font-display)', fontSize: 14, fontWeight: 600, lineHeight: 1.15, color: 'var(--ink)' }}>Введение в нейрокоучинг</div>
         </div>
       </div>
-
-      {/* Progress bar */}
       <div style={{ flex: 1, minWidth: 80, maxWidth: 300, marginLeft: 8 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 9.5, fontWeight: 600, letterSpacing: '.08em', textTransform: 'uppercase', opacity: 0.5, color: 'var(--ink)', marginBottom: 4 }}>
           <span>Прогресс</span><span>{done} из {total}</span>
@@ -267,13 +415,8 @@ function TopBar({ xp, streak, completed }: { xp: number; streak: number; complet
           <div style={{ width: `${overall * 100}%`, height: '100%', background: 'linear-gradient(90deg, var(--terra-2), var(--gold-2))', borderRadius: 999, transition: 'width .35s ease' }} />
         </div>
       </div>
-
-      {/* Stats */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-        {[
-          { emoji: '⚡', val: xp, label: 'XP' },
-          { emoji: '🔥', val: streak, label: 'дней' },
-        ].map(s => (
+        {[{ emoji: '⚡', val: xp, label: 'XP' }, { emoji: '🔥', val: streak, label: 'дней' }].map(s => (
           <div key={s.label} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '5px 11px 5px 9px', background: 'var(--bg-deep)', borderRadius: 999, whiteSpace: 'nowrap' }}>
             <span>{s.emoji}</span>
             <span style={{ fontWeight: 700, fontSize: 13, fontFamily: 'var(--font-display)', color: 'var(--ink)' }}>{s.val}</span>
@@ -288,7 +431,6 @@ function TopBar({ xp, streak, completed }: { xp: number; streak: number; complet
           </div>
         </div>
       </div>
-
       <div style={{ width: 34, height: 34, borderRadius: 999, background: 'var(--bg-deep)', display: 'grid', placeItems: 'center', fontWeight: 700, fontSize: 12, fontFamily: 'var(--font-display)', color: 'var(--ink)', flexShrink: 0 }}>А</div>
     </header>
   )
@@ -302,7 +444,8 @@ function WelcomeCard({ onStart }: { onStart: () => void }) {
     <div style={{ display: 'grid', gridTemplateColumns: '120px 1fr auto', gap: 18, padding: 18, alignItems: 'center', background: 'linear-gradient(180deg, var(--surface) 0%, var(--surface-2) 100%)', border: '1px solid var(--line)', borderRadius: 18, boxShadow: 'var(--shadow-md)' }}>
       <div style={{ position: 'relative', width: 120, height: 120 }}>
         <div style={{ width: 120, height: 120, borderRadius: 999, background: 'repeating-linear-gradient(135deg,oklch(0.92 0.012 75) 0 6px,oklch(0.96 0.01 75) 6px 12px)', border: '1px solid var(--line)' }} />
-        <button onClick={() => setPlaying(p => !p)} aria-label="Послушать приветствие" style={{ position: 'absolute', inset: 0, margin: 'auto', width: 48, height: 48, borderRadius: 999, border: 'none', background: 'var(--terra-2)', color: '#fff', boxShadow: '0 8px 24px -8px rgba(0,0,0,.4)', display: 'grid', placeItems: 'center', cursor: 'pointer', fontSize: 22 }}>
+        <button onClick={() => setPlaying(p => !p)} aria-label="Послушать приветствие"
+          style={{ position: 'absolute', inset: 0, margin: 'auto', width: 48, height: 48, borderRadius: 999, border: 'none', background: 'var(--terra-2)', color: '#fff', boxShadow: '0 8px 24px -8px rgba(0,0,0,.4)', display: 'grid', placeItems: 'center', cursor: 'pointer', fontSize: 22 }}>
           {playing ? '⏸' : '▶'}
         </button>
       </div>
@@ -317,8 +460,8 @@ function WelcomeCard({ onStart }: { onStart: () => void }) {
             </span>
           )}
         </div>
-        <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 20, fontWeight: 600, margin: '0 0 6px', color: 'var(--ink)' }}>Привет, я Александра. Рада, что ты зашла.</h3>
-        <p style={{ color: 'var(--ink-soft)', fontSize: 13.5, margin: 0 }}>Сегодня — 3 минуты. Короткий тест, который определит твой стиль принятия решений. С него начнётся всё дальнейшее.</p>
+        <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 20, fontWeight: 600, margin: '0 0 6px', color: 'var(--ink)' }}>Здравствуйте, я Александра. Рада, что Вы здесь.</h3>
+        <p style={{ color: 'var(--ink-soft)', fontSize: 13.5, margin: 0 }}>Сегодня — 3 минуты. Короткий тест, который определит Ваш стиль принятия решений. С него начнётся всё дальнейшее.</p>
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
         <button onClick={onStart} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, background: 'var(--terra-2)', color: '#fff', border: 'none', padding: '10px 16px', borderRadius: 10, fontWeight: 600, fontSize: 12.5, fontFamily: 'var(--font-body)', cursor: 'pointer', boxShadow: '0 6px 16px -6px rgba(180,80,50,.5)', whiteSpace: 'nowrap' }}>
@@ -332,32 +475,13 @@ function WelcomeCard({ onStart }: { onStart: () => void }) {
   )
 }
 
-// ─── Daily Quest ──────────────────────────────────────────────────────────────
-
-function DailyQuest({ nextLesson, onOpen }: { nextLesson: OpenLesson | null; onOpen: (l: OpenLesson) => void }) {
-  if (!nextLesson) return null
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '11px 16px', background: 'var(--gold-tint)', border: '1px solid var(--gold-soft)', borderRadius: 12 }}>
-      <div style={{ width: 38, height: 38, borderRadius: 10, background: 'var(--gold)', color: 'var(--navy-2)', display: 'grid', placeItems: 'center', flexShrink: 0, fontSize: 20 }}>☀️</div>
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <Eyebrow color="var(--gold-2)">Квест дня · 5 минут</Eyebrow>
-        <div style={{ fontFamily: 'var(--font-display)', fontSize: 15, fontWeight: 600, marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--ink)' }}>{nextLesson.title}</div>
-      </div>
-      <MonoChip>{nextLesson.duration} мин · +{nextLesson.xp} XP</MonoChip>
-      <button onClick={() => onOpen(nextLesson)} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'var(--terra-2)', color: '#fff', border: 'none', padding: '9px 14px', borderRadius: 10, fontWeight: 600, fontSize: 12.5, fontFamily: 'var(--font-body)', cursor: 'pointer', whiteSpace: 'nowrap' }}>
-        Начать →
-      </button>
-    </div>
-  )
-}
-
 // ─── Bonus Grid ───────────────────────────────────────────────────────────────
 
 function BonusGrid({ testDone }: { testDone: boolean }) {
   const cards = [
-    { emoji: '⚡', tag: 'Бонус за раннее решение', title: 'Прими решение о L1 до конца курса', body: 'Личная 30-минутная сессия с Александрой + 5% к любому тарифу.', tone: 'terra' as const, cta: 'Узнать подробнее', locked: false },
-    { emoji: '📅', tag: 'После итогового теста', title: 'Бесплатная диагностика 30 минут', body: 'Разбор твоей точки А и плана из 3 шагов. Открывается после прохождения теста.', tone: 'sage' as const, cta: 'Забронировать слот', locked: !testDone },
-    { emoji: '👥', tag: 'Кейс выпускницы', title: 'Татьяна, скрам-мастер → нейрокоуч', body: 'Прошла курс в апреле, сейчас ведёт 8 клиентов в месяц по 50 €.', tone: 'gold' as const, cta: 'Читать историю', locked: false },
+    { emoji: '⚡', tag: 'Бонус за раннее решение', title: 'Примите решение о L1 до конца курса', body: 'Личная 30-минутная сессия с Александрой + 5% к любому тарифу.', tone: 'terra' as const, cta: 'Узнать подробнее', locked: false },
+    { emoji: '📅', tag: 'После итогового теста', title: 'Бесплатная диагностика 30 минут', body: 'Разбор вашей точки А и плана из 3 шагов. Открывается после прохождения теста.', tone: 'sage' as const, cta: 'Забронировать слот', locked: !testDone },
+    { emoji: '💬', tag: 'Кейс выпускника', title: 'Татьяна, скрам-мастер → нейрокоуч', body: 'Прошла курс в апреле, сейчас ведёт 8 клиентов в месяц по 50 €.', tone: 'gold' as const, cta: 'Читать историю', locked: false },
     { emoji: '📚', tag: 'Дополнительные материалы', title: 'Пять препятствий на пути коуча', body: 'Лекция Александры Болдиной + чек-листы + статья про компетенции INCF.', tone: 'sage' as const, cta: 'Открыть материалы', locked: false },
   ]
   const tones = {
@@ -391,15 +515,8 @@ function BonusGrid({ testDone }: { testDone: boolean }) {
 // ─── Roadmap SVG + Stamps ─────────────────────────────────────────────────────
 
 function PathRoad({ completed }: { completed: Set<string> }) {
-  const getBadgeStatus = (blockId: string): StampStatus => {
-    const p = blockProgress(blockId, completed)
-    if (p.ratio >= 1) return 'done'
-    if (p.done > 0) return 'next'
-    return 'locked'
-  }
-
   const isStampDone = (s: Stamp): boolean => {
-    if (s.kind === 'badge') return getBadgeStatus(s.blockId!) === 'done'
+    if (s.kind === 'badge') return blockProgress(s.blockId!, completed).ratio >= 1
     if (s.kind === 'cert') return FINALS.every(f => completed.has(f.id))
     return completed.has(s.id)
   }
@@ -415,15 +532,13 @@ function PathRoad({ completed }: { completed: Set<string> }) {
       {STAMPS.slice(0, -1).map((_, i) => {
         const a = STAMPS[i], b = STAMPS[i + 1]
         const aDone = isStampDone(a), bDone = isStampDone(b)
-        const segDone = aDone && bDone
-        const segNext = aDone && !bDone
         const d = pathBetween(a, b)
         return (
           <g key={i}>
             <path d={d} fill="none" stroke="oklch(0.92 0.012 75)" strokeWidth="14" strokeLinecap="round" />
             <path d={d} fill="none" stroke="oklch(0.98 0.008 75)" strokeWidth="2" strokeLinecap="round" strokeDasharray="6 10" />
-            {segDone && <path d={d} fill="none" stroke="var(--terra-2)" strokeWidth="14" strokeLinecap="round" opacity="0.85" />}
-            {segNext && (
+            {aDone && bDone && <path d={d} fill="none" stroke="var(--terra-2)" strokeWidth="14" strokeLinecap="round" opacity="0.85" />}
+            {aDone && !bDone && (
               <>
                 <path d={d} fill="none" stroke="var(--terra-2)" strokeWidth="14" strokeLinecap="round" opacity="0.4" strokeDasharray="14 14">
                   <animate attributeName="stroke-dashoffset" from="0" to="-28" dur="1.4s" repeatCount="indefinite" />
@@ -439,11 +554,8 @@ function PathRoad({ completed }: { completed: Set<string> }) {
 }
 
 function RoadmapStamp({ stamp, completed, nextId, isLocked, onOpen }: {
-  stamp: Stamp
-  completed: Set<string>
-  nextId: string | null
-  isLocked: (id: string) => boolean
-  onOpen: (lesson: OpenLesson) => void
+  stamp: Stamp; completed: Set<string>; nextId: string | null
+  isLocked: (id: string) => boolean; onOpen: (lesson: OpenLesson) => void
 }) {
   const [hovered, setHovered] = useState(false)
   const { id, x, y, kind } = stamp
@@ -451,14 +563,11 @@ function RoadmapStamp({ stamp, completed, nextId, isLocked, onOpen }: {
   const getStatus = (): StampStatus => {
     if (kind === 'badge') {
       const p = blockProgress(stamp.blockId!, completed)
-      if (p.ratio >= 1) return 'done'
-      if (p.done > 0) return 'next'
-      return 'locked'
+      if (p.ratio >= 1) return 'done'; if (p.done > 0) return 'next'; return 'locked'
     }
     if (kind === 'cert') {
       if (FINALS.every(f => completed.has(f.id))) return 'done'
-      if (completed.has('test')) return 'next'
-      return 'locked'
+      if (completed.has('test')) return 'next'; return 'locked'
     }
     if (completed.has(id)) return 'done'
     if (id === nextId) return 'next'
@@ -484,15 +593,9 @@ function RoadmapStamp({ stamp, completed, nextId, isLocked, onOpen }: {
 
   const getLessonForModal = (): OpenLesson | null => {
     if (kind === 'lesson' && lesson) return lesson
-    if (kind === 'intro') return { id: 'intro', title: INTRO.title, n: 0, lecturer: 'INCF', duration: INTRO.duration, xp: INTRO.xp, subtitle: INTRO.desc, fact: 'Курс задуман как разминка к L1. Если дойдёшь до конца — получишь сертификат и подарок.', factTag: 'О курсе' }
-    if (kind === 'final' && final) return { id: final.id, title: final.title, n: '★', lecturer: 'INCF', duration: 10, xp: final.xp, subtitle: final.subtitle, fact: 'Финал — это не оценка, а способ закрепить дугу.', factTag: 'Финал', task: final.id === 'six' ? 'Какой урок отозвался сильнее всего и почему?' : null }
+    if (kind === 'intro') return { id: 'intro', title: INTRO.title, n: 0, lecturer: 'INCF', duration: INTRO.duration, xp: INTRO.xp, subtitle: INTRO.desc, fact: 'Курс задуман как разминка к L1. Если дойдёте до конца — получите сертификат и подарок.', factTag: 'О курсе' }
+    if (kind === 'final' && final) return { id: final.id, title: final.title, n: '★', lecturer: 'INCF', duration: 10, xp: final.xp, subtitle: final.subtitle, fact: 'Финал — это не оценка, а способ закрепить пройденное.', factTag: 'Финал', task: final.id === 'six' ? 'Какой урок отозвался сильнее всего и почему?' : null }
     return null
-  }
-
-  const handleClick = () => {
-    if (status === 'locked') return
-    const l = getLessonForModal()
-    if (l) onOpen(l)
   }
 
   const rot = kind === 'badge' ? 'rotate(-4deg)' : kind === 'cert' ? 'rotate(2deg)' : 'none'
@@ -500,7 +603,7 @@ function RoadmapStamp({ stamp, completed, nextId, isLocked, onOpen }: {
 
   return (
     <button
-      onClick={handleClick}
+      onClick={() => { if (status === 'locked') return; const l = getLessonForModal(); if (l) onOpen(l) }}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       aria-label={`${label}, ${status === 'done' ? 'пройдено' : status === 'next' ? 'следующее' : status === 'locked' ? 'заблокировано' : 'доступно'}`}
@@ -517,19 +620,15 @@ function RoadmapStamp({ stamp, completed, nextId, isLocked, onOpen }: {
         display: 'grid', placeItems: 'center', padding: 0,
         cursor: status === 'locked' ? 'not-allowed' : 'pointer',
         transition: 'transform .15s, box-shadow .15s',
-        opacity: status === 'locked' ? 0.72 : 1,
-        zIndex: 3,
+        opacity: status === 'locked' ? 0.72 : 1, zIndex: 3,
       }}
     >
-      {/* Icon */}
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
         {status === 'done' && !isReward && <span style={{ fontSize: 28 }}>✓</span>}
         {status === 'locked' && <span style={{ fontSize: 20 }}>🔒</span>}
         {status !== 'done' && status !== 'locked' && kind === 'lesson' && lesson && (
-          <>
-            <span style={{ fontSize: 9.5, fontWeight: 700, opacity: 0.55, letterSpacing: '.1em' }}>УРОК</span>
-            <span style={{ fontFamily: 'var(--font-display)', fontSize: 22, fontWeight: 700, lineHeight: 1 }}>{lesson.n}</span>
-          </>
+          <><span style={{ fontSize: 9.5, fontWeight: 700, opacity: 0.55, letterSpacing: '.1em' }}>УРОК</span>
+          <span style={{ fontFamily: 'var(--font-display)', fontSize: 22, fontWeight: 700, lineHeight: 1 }}>{lesson.n}</span></>
         )}
         {status !== 'done' && status !== 'locked' && kind === 'intro' && <span style={{ fontSize: 26 }}>🚀</span>}
         {status !== 'done' && status !== 'locked' && kind === 'badge' && <span style={{ fontSize: 30 }}>🏆</span>}
@@ -537,13 +636,9 @@ function RoadmapStamp({ stamp, completed, nextId, isLocked, onOpen }: {
         {status !== 'done' && status !== 'locked' && kind === 'final' && <span style={{ fontSize: 26 }}>{id === 'test' ? '📝' : '💬'}</span>}
         {kind === 'cert' && status !== 'locked' && <span style={{ fontSize: status === 'done' ? 34 : 26 }}>🎓</span>}
       </div>
-
-      {/* Label below */}
       <span style={{ position: 'absolute', top: '100%', left: '50%', transform: 'translate(-50%, 5px)', whiteSpace: 'nowrap', fontFamily: 'var(--font-display)', fontSize: 11, fontWeight: 600, color: 'var(--ink)', background: 'rgba(255,255,255,.88)', backdropFilter: 'blur(2px)', padding: '2px 9px', borderRadius: 999, border: '1px solid var(--line)', zIndex: 4 }}>
         {label}
       </span>
-
-      {/* XP chip for next */}
       {status === 'next' && (kind === 'lesson' || kind === 'final') && (
         <span style={{ position: 'absolute', bottom: '100%', left: '50%', transform: 'translate(-50%, -5px)', whiteSpace: 'nowrap', fontFamily: 'var(--font-display)', fontSize: 10.5, fontWeight: 700, color: 'var(--navy-2)', background: 'var(--gold)', padding: '2px 9px', borderRadius: 999, zIndex: 4 }}>
           сейчас · +{lesson?.xp ?? final?.xp} XP
@@ -553,29 +648,14 @@ function RoadmapStamp({ stamp, completed, nextId, isLocked, onOpen }: {
   )
 }
 
-// ─── Side cards ───────────────────────────────────────────────────────────────
-
-function SideCard({ stampId, side, children }: { stampId: string; side: 'left' | 'right'; children: React.ReactNode }) {
-  const stamp = STAMPS.find(s => s.id === stampId)
-  if (!stamp) return null
-  const stampR = 44, leadGap = 32, cardWidth = 230
-  const leftPos = side === 'left'
-    ? `calc(${(stamp.x / W) * 100}% - ${stampR + leadGap + cardWidth}px)`
-    : `calc(${(stamp.x / W) * 100}% + ${stampR + leadGap}px)`
-  return (
-    <div style={{ position: 'absolute', left: leftPos, top: `calc(${(stamp.y / H) * 100}% - 22px)`, width: cardWidth, zIndex: 2 }}>
-      <div style={{ position: 'absolute', top: 28, [side === 'left' ? 'right' : 'left']: '100%', width: leadGap, height: 1.5, background: `repeating-linear-gradient(90deg, var(--ink-mute) 0 4px, transparent 4px 8px)`, opacity: 0.4 }} />
-      {children}
-    </div>
-  )
-}
-
 // ─── Main Roadmap Page ────────────────────────────────────────────────────────
 
 export default function RoadmapPage() {
   const [completed, setCompleted] = useState<Set<string>>(new Set(['intro', 'l1']))
   const [answers, setAnswers] = useState<Record<string, string>>({ l1: 'Хочу понять, почему я откладываю важные разговоры.' })
   const [openLesson, setOpenLesson] = useState<OpenLesson | null>(null)
+  const [mapWidth, setMapWidth] = useState(0)
+  const mapRef = useRef<HTMLDivElement>(null)
 
   const streak = 3
   const xp = computeXP(completed)
@@ -584,18 +664,28 @@ export default function RoadmapPage() {
   const undo = useCallback((id: string) => setCompleted(prev => { const s = new Set(prev); s.delete(id); return s }), [])
   const setAnswer = useCallback((id: string, v: string) => setAnswers(prev => ({ ...prev, [id]: v })), [])
 
+  // Measure map container width and update on resize
+  useLayoutEffect(() => {
+    const el = mapRef.current
+    if (!el) return
+    const update = () => setMapWidth(el.getBoundingClientRect().width)
+    update()
+    const ro = new ResizeObserver(update)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
+
+  const isCompact = mapWidth > 0 && mapWidth < 1100
+
   const firstUndoneIdx = LESSONS.findIndex(l => !completed.has(l.id))
   const isLocked = (id: string) => {
     const idx = LESSONS.findIndex(l => l.id === id)
-    if (idx === -1) return false
-    if (firstUndoneIdx === -1) return false
+    if (idx === -1 || firstUndoneIdx === -1) return false
     return idx > firstUndoneIdx + 1
   }
 
-const nextLesson: OpenLesson | null = (LESSONS.find(l => !completed.has(l.id)) ?? FINALS.find(f => !completed.has(f.id)) ?? null) as OpenLesson | null
-const testDone = completed.has('test')
-
-  const openFirst = () => { if (nextLesson) setOpenLesson(nextLesson) }
+  const nextLesson: OpenLesson | null = (LESSONS.find(l => !completed.has(l.id)) ?? FINALS.find(f => !completed.has(f.id)) ?? null) as OpenLesson | null
+  const testDone = completed.has('test')
 
   return (
     <>
@@ -609,62 +699,34 @@ const testDone = completed.has('test')
           <TopBar xp={xp} streak={streak} completed={completed} />
 
           <div style={{ padding: '18px 24px 28px', display: 'flex', flexDirection: 'column', gap: 14 }}>
-            <WelcomeCard onStart={openFirst} />
-            <DailyQuest nextLesson={nextLesson} onOpen={setOpenLesson} />
+            <WelcomeCard onStart={() => { if (nextLesson) setOpenLesson(nextLesson) }} />
 
             {/* Roadmap section */}
-            <section style={{ background: `linear-gradient(180deg, var(--surface) 0%, var(--bg) 85%)`, borderRadius: 18, border: '1px solid var(--line)', boxShadow: 'var(--shadow-md)', padding: '18px 18px 24px', position: 'relative' }}>
-              <header style={{ display: 'flex', alignItems: 'flex-end', gap: 14, justifyContent: 'space-between', marginBottom: 14, padding: '0 4px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 11, color: 'var(--ink-mute)', flexShrink: 0 }}>
-                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}><span style={{ width: 11, height: 11, borderRadius: 999, background: 'var(--terra-2)', display: 'inline-block' }} /> Пройдено</span>
-                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}><span style={{ width: 11, height: 11, borderRadius: 999, border: '2px solid var(--terra-2)', display: 'inline-block' }} /> Сейчас</span>
-                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}><span style={{ width: 11, height: 11, borderRadius: 3, background: 'var(--gold)', transform: 'rotate(-6deg)', display: 'inline-block' }} /> Бейдж</span>
-                </div>
+            <section style={{ background: 'linear-gradient(180deg, var(--surface) 0%, var(--bg) 85%)', borderRadius: 18, border: '1px solid var(--line)', boxShadow: 'var(--shadow-md)', padding: '18px 18px 24px', position: 'relative' }}>
+              <header style={{ display: 'flex', alignItems: 'center', gap: 10, justifyContent: 'flex-end', marginBottom: 14, padding: '0 4px', fontSize: 11, color: 'var(--ink-mute)' }}>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}><span style={{ width: 11, height: 11, borderRadius: 999, background: 'var(--terra-2)', display: 'inline-block' }} /> Пройдено</span>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}><span style={{ width: 11, height: 11, borderRadius: 999, border: '2px solid var(--terra-2)', display: 'inline-block' }} /> Сейчас</span>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}><span style={{ width: 11, height: 11, borderRadius: 3, background: 'var(--gold)', transform: 'rotate(-6deg)', display: 'inline-block' }} /> Бейдж</span>
               </header>
 
-              <div style={{ position: 'relative', width: '100%', aspectRatio: `${W} / ${H}` }}>
+              <div ref={mapRef} style={{ position: 'relative', width: '100%', aspectRatio: `${W} / ${H}` }}>
                 <PathRoad completed={completed} />
                 {STAMPS.map(stamp => (
                   <RoadmapStamp key={stamp.id} stamp={stamp} completed={completed} nextId={nextLesson?.id ?? null} isLocked={isLocked} onOpen={setOpenLesson} />
                 ))}
-
-                {/* Side cards */}
-                <SideCard stampId="l1" side="right">
-                  <FunFact tag="Этимология" text='Слово «коучинг» — из венгерского "kocsi szekér". Дословно — то, что довозит до цели.' tone="sage" compact />
-                </SideCard>
-                <SideCard stampId="l2" side="left">
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 12, boxShadow: 'var(--shadow-sm)' }}>
-                    <div style={{ width: 36, height: 36, borderRadius: 999, background: 'repeating-linear-gradient(135deg,oklch(0.92 0.012 75) 0 5px,oklch(0.96 0.01 75) 5px 10px)', border: '1px solid var(--line)', flexShrink: 0 }} />
-                    <div style={{ minWidth: 0 }}>
-                      <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--ink)' }}>Татьяна Азарова <span style={{ fontWeight: 500, color: 'var(--ink-mute)' }}>· скрам-мастер → коуч</span></div>
-                      <div style={{ fontSize: 11, color: 'var(--ink-2)', marginTop: 1 }}>Полгода назад прошла этот же курс. 8 клиентов в месяц.</div>
-                    </div>
-                    <span style={{ fontSize: 16, marginLeft: 'auto' }}>✅</span>
-                  </div>
-                </SideCard>
-                <SideCard stampId="l4" side="left">
-                  <FunFact tag="Нейронаука" text="До 95% решений мы принимаем неосознанно. Кора рационализирует уже принятое — постфактум." tone="gold" compact />
-                </SideCard>
-                <SideCard stampId="l5" side="right">
-                  <NativeMention moduleRef="«Когнитивные искажения» (4 неделя)" />
-                </SideCard>
-                <SideCard stampId="l7" side="right">
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 12, boxShadow: 'var(--shadow-sm)' }}>
-                    <div style={{ width: 36, height: 36, borderRadius: 999, background: 'repeating-linear-gradient(135deg,oklch(0.92 0.012 75) 0 5px,oklch(0.96 0.01 75) 5px 10px)', border: '1px solid var(--line)', flexShrink: 0 }} />
-                    <div style={{ minWidth: 0 }}>
-                      <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--ink)' }}>Анастасия Тарунтаева <span style={{ fontWeight: 500, color: 'var(--ink-mute)' }}>· врач → нейрокоуч</span></div>
-                      <div style={{ fontSize: 11, color: 'var(--ink-2)', marginTop: 1 }}>«Стресс и эмоции» — урок, после которого всё изменилось.</div>
-                    </div>
-                    <span style={{ fontSize: 16, marginLeft: 'auto' }}>✅</span>
-                  </div>
-                </SideCard>
-                <SideCard stampId="test" side="left">
-                  <div style={{ padding: 12, borderRadius: 12, border: '1px solid var(--terra-soft)', background: 'var(--terra-tint)' }}>
-                    <Eyebrow>🎁 Откроется после теста</Eyebrow>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)', marginTop: 6 }}>Бесплатная диагностика 30 мин</div>
-                    <div style={{ fontSize: 11.5, color: 'var(--ink-soft)', marginTop: 3 }}>С Александрой. Разбираем твою точку А и план из 3 шагов.</div>
-                  </div>
-                </SideCard>
+                {mapWidth > 0 && ANNOTATIONS.map(annotation => {
+                  const stamp = STAMPS.find(s => s.id === annotation.stampId)
+                  if (!stamp) return null
+                  return (
+                    <AnnotationCard
+                      key={annotation.id}
+                      annotation={annotation}
+                      stamp={stamp}
+                      mapWidth={mapWidth}
+                      isCompact={isCompact}
+                    />
+                  )
+                })}
               </div>
             </section>
 
@@ -673,47 +735,16 @@ const testDone = completed.has('test')
         </div>
       </div>
 
- {openLesson && (
-        <LessonModal
-          lesson={openLesson}
-          completed={completed}
-          answers={answers}
-          onClose={() => setOpenLesson(null)}
-          onMarkDone={markDone}
-          onUndo={undo}
-          onSetAnswer={setAnswer}
-        />
+      {openLesson && (
+        <LessonModal lesson={openLesson} completed={completed} answers={answers}
+          onClose={() => setOpenLesson(null)} onMarkDone={markDone} onUndo={undo} onSetAnswer={setAnswer} />
       )}
 
-      {/* Support button */}
-      <a
-        href="https://t.me/incf_team"
-        target="_blank"
-        rel="noopener noreferrer"
-        aria-label="Написать в поддержку"
-        className="tg-btn"
-        style={{
-          position: 'fixed',
-          bottom: 24,
-          right: 24,
-          zIndex: 45,
-          width: 52,
-          height: 52,
-          borderRadius: 999,
-          background: '#29A8E0',
-          color: '#fff',
-          display: 'grid',
-          placeItems: 'center',
-          boxShadow: '0 4px 16px -4px rgba(41,168,224,.6)',
-          textDecoration: 'none',
-          transition: 'transform .15s, box-shadow .15s',
-        }}
-      >
+      <a href="https://t.me/incf_team" target="_blank" rel="noopener noreferrer"
+        aria-label="Написать в поддержку" className="tg-btn"
+        style={{ position: 'fixed', bottom: 24, right: 24, zIndex: 45, width: 52, height: 52, borderRadius: 999, background: '#29A8E0', color: '#fff', display: 'grid', placeItems: 'center', boxShadow: '0 4px 16px -4px rgba(41,168,224,.6)', textDecoration: 'none', transition: 'transform .15s, box-shadow .15s' }}>
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-          <path
-            d="M12 2C6.477 2 2 6.477 2 12s4.477 10 10 10 10-4.477 10-10S17.523 2 12 2zm4.93 6.686l-1.68 7.92c-.126.558-.456.694-.924.432l-2.556-1.883-1.233 1.187c-.136.136-.25.25-.513.25l.183-2.596 4.722-4.267c.205-.183-.045-.284-.318-.1L8.078 13.94l-2.513-.785c-.546-.171-.557-.546.114-.808l9.81-3.783c.455-.165.853.11.441.122z"
-            fill="white"
-          />
+          <path d="M12 2C6.477 2 2 6.477 2 12s4.477 10 10 10 10-4.477 10-10S17.523 2 12 2zm4.93 6.686l-1.68 7.92c-.126.558-.456.694-.924.432l-2.556-1.883-1.233 1.187c-.136.136-.25.25-.513.25l.183-2.596 4.722-4.267c.205-.183-.045-.284-.318-.1L8.078 13.94l-2.513-.785c-.546-.171-.557-.546.114-.808l9.81-3.783c.455-.165.853.11.441.122z" fill="white" />
         </svg>
       </a>
     </>
