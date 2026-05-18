@@ -6,6 +6,7 @@ import {
   computeXP, blockProgress,
   type Lesson,
 } from '@/lib/course-data'
+import { markStepDone, undoStep, saveAnswer, loadProgress } from '@/app/actions/progress'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -28,8 +29,6 @@ type OpenLesson = Lesson | {
   pre?: string; nativePitch?: string
 }
 
-// ─── Annotation card types ────────────────────────────────────────────────────
-
 type AnnotationType = 'fact' | 'alumni' | 'l1' | 'diagnostic'
 
 interface Annotation {
@@ -42,8 +41,6 @@ interface Annotation {
   compactLabel: string
 }
 
-// ─── Roadmap stamp positions (world: 1080 × 1700) ────────────────────────────
-
 const W = 1080, H = 1700
 const CARD_WIDTH = 230
 const CARD_GAP = 28
@@ -54,26 +51,23 @@ const STAMPS: Stamp[] = [
   { id: 'l1',     x: 380, y: 180,  kind: 'lesson' },
   { id: 'l2',     x: 700, y: 300,  kind: 'lesson' },
   { id: 'l3',     x: 380, y: 420,  kind: 'lesson' },
-  { id: 'badge1', x: 540, y: 540,  kind: 'badge',  label: 'Введение освоено', blockId: 'b1' },
+  { id: 'badge1', x: 540, y: 540,  kind: 'badge', label: 'Введение освоено', blockId: 'b1' },
   { id: 'l4',     x: 700, y: 660,  kind: 'lesson' },
   { id: 'l5',     x: 380, y: 780,  kind: 'lesson' },
-  { id: 'badge2', x: 540, y: 900,  kind: 'badge',  label: 'Решения изучены', blockId: 'b2' },
+  { id: 'badge2', x: 540, y: 900,  kind: 'badge', label: 'Решения изучены', blockId: 'b2' },
   { id: 'l6',     x: 700, y: 1020, kind: 'lesson' },
   { id: 'l7',     x: 380, y: 1140, kind: 'lesson' },
-  { id: 'badge3', x: 540, y: 1260, kind: 'badge',  label: 'Практика — рулит', blockId: 'b3' },
-  { id: 'test',   x: 700, y: 1380, kind: 'final',  label: 'Итоговый тест' },
-  { id: 'six',    x: 380, y: 1500, kind: 'final',  label: '6 вопросов' },
-  { id: 'cert',   x: 540, y: 1620, kind: 'cert',   label: 'Сертификат' },
+  { id: 'badge3', x: 540, y: 1260, kind: 'badge', label: 'Практика — рулит', blockId: 'b3' },
+  { id: 'test',   x: 700, y: 1380, kind: 'final', label: 'Итоговый тест' },
+  { id: 'six',    x: 380, y: 1500, kind: 'final', label: '6 вопросов' },
+  { id: 'cert',   x: 540, y: 1620, kind: 'cert',  label: 'Сертификат' },
 ]
-
-// ─── Collision-aware card position ───────────────────────────────────────────
 
 function getSideCardLeft(markerX: number, mapWidth: number, preferred: 'left' | 'right'): number {
   const leftCandidate  = markerX - CARD_WIDTH - CARD_GAP
   const rightCandidate = markerX + CARD_GAP
   const fitsLeft  = leftCandidate >= SAFE
   const fitsRight = rightCandidate + CARD_WIDTH <= mapWidth - SAFE
-
   if (preferred === 'left'  && fitsLeft)  return leftCandidate
   if (preferred === 'right' && fitsRight) return rightCandidate
   if (fitsLeft)  return leftCandidate
@@ -81,35 +75,21 @@ function getSideCardLeft(markerX: number, mapWidth: number, preferred: 'left' | 
   return Math.max(SAFE, Math.min(markerX - CARD_WIDTH / 2, mapWidth - CARD_WIDTH - SAFE))
 }
 
-// ─── SVG path helper ─────────────────────────────────────────────────────────
-
 function pathBetween(a: Stamp, b: Stamp): string {
   const mx = (a.x + b.x) / 2 + (b.y > a.y ? Math.sign(b.x - a.x) * 28 : 0)
   const my = (a.y + b.y) / 2
   return `M ${a.x} ${a.y} Q ${mx} ${my} ${b.x} ${b.y}`
 }
 
-// ─── Small UI primitives ──────────────────────────────────────────────────────
-
 function Eyebrow({ children, color = 'var(--terra-2)' }: { children: React.ReactNode; color?: string }) {
-  return (
-    <span style={{ fontSize: 9.5, fontWeight: 700, letterSpacing: '.14em', textTransform: 'uppercase', color }}>
-      {children}
-    </span>
-  )
+  return <span style={{ fontSize: 9.5, fontWeight: 700, letterSpacing: '.14em', textTransform: 'uppercase', color }}>{children}</span>
 }
 
 function MonoChip({ children }: { children: React.ReactNode }) {
-  return (
-    <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--ink-mute)', background: 'rgba(0,0,0,.04)', padding: '2px 7px', borderRadius: 4 }}>
-      {children}
-    </span>
-  )
+  return <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--ink-mute)', background: 'rgba(0,0,0,.04)', padding: '2px 7px', borderRadius: 4 }}>{children}</span>
 }
 
-function FunFact({ tag, text, tone = 'sage', compact = false }: {
-  tag: string; text: string; tone?: 'sage' | 'gold' | 'terra'; compact?: boolean
-}) {
+function FunFact({ tag, text, tone = 'sage', compact = false }: { tag: string; text: string; tone?: 'sage' | 'gold' | 'terra'; compact?: boolean }) {
   const tones = {
     sage:  { bg: 'var(--sage-tint)',  ink: 'var(--sage-2)',  line: 'var(--sage-soft)' },
     gold:  { bg: 'var(--gold-tint)',  ink: 'var(--gold-2)',  line: 'var(--gold-soft)' },
@@ -131,14 +111,14 @@ function FunFact({ tag, text, tone = 'sage', compact = false }: {
 
 function NativeMention({ moduleRef }: { moduleRef: string }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', background: 'rgba(255,255,255,.75)', backdropFilter: 'blur(4px)', border: '1px dashed var(--line)', borderRadius: 12 }}>
-      <div style={{ width: 28, height: 28, borderRadius: 8, background: 'var(--terra-tint)', color: 'var(--terra-2)', display: 'grid', placeItems: 'center', flexShrink: 0, fontSize: 15 }}>🎓</div>
-      <p style={{ flex: 1, fontSize: 12, color: 'var(--ink-2)', margin: 0, lineHeight: 1.4 }}>
-        Эта тема — глубже в <strong style={{ color: 'var(--ink)' }}>Нейрокоучинг L1</strong>, модуль {moduleRef}. Пять месяцев, четыре дисциплины, сертификат.
-      </p>
-      <button style={{ background: 'none', border: 'none', color: 'var(--terra-2)', fontSize: 11, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }}>
-        Подробнее →
-      </button>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: '10px 14px', background: 'rgba(255,255,255,.75)', backdropFilter: 'blur(4px)', border: '1px dashed var(--line)', borderRadius: 12 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <div style={{ width: 28, height: 28, borderRadius: 8, background: 'var(--terra-tint)', color: 'var(--terra-2)', display: 'grid', placeItems: 'center', flexShrink: 0, fontSize: 15 }}>🎓</div>
+        <p style={{ flex: 1, fontSize: 12, color: 'var(--ink-2)', margin: 0, lineHeight: 1.4 }}>
+          Эта тема — глубже в <strong style={{ color: 'var(--ink)' }}>Нейрокоучинг L1</strong>, модуль {moduleRef}.
+        </p>
+      </div>
+      <button style={{ background: 'none', border: 'none', color: 'var(--terra-2)', fontSize: 11, fontWeight: 600, cursor: 'pointer', padding: 0, textAlign: 'left' }}>Подробнее →</button>
     </div>
   )
 }
@@ -165,57 +145,20 @@ function DiagnosticCard() {
   )
 }
 
-// ─── Annotation definitions ───────────────────────────────────────────────────
-
 const ANNOTATIONS: Annotation[] = [
-  {
-    id: 'a1', stampId: 'l1', preferredSide: 'right', type: 'fact',
-    compactIcon: '💡', compactLabel: 'Этимология',
-    content: <FunFact tag="Этимология" text='Слово «коучинг» — из венгерского "kocsi szekér". Дословно — то, что довозит до цели.' tone="sage" compact />,
-  },
-  {
-    id: 'a2', stampId: 'l2', preferredSide: 'left', type: 'alumni',
-    compactIcon: '💬', compactLabel: 'Татьяна',
-    content: <AlumniCard name="Татьяна Азарова" role="скрам-мастер → коуч" quote="Полгода назад прошла этот же курс. 8 клиентов в месяц." />,
-  },
-  {
-    id: 'a3', stampId: 'l4', preferredSide: 'left', type: 'fact',
-    compactIcon: '💡', compactLabel: 'Нейронаука',
-    content: <FunFact tag="Нейронаука" text="До 95% решений мы принимаем неосознанно. Кора рационализирует уже принятое — постфактум." tone="gold" compact />,
-  },
-  {
-    id: 'a4', stampId: 'l5', preferredSide: 'right', type: 'l1',
-    compactIcon: '🎓', compactLabel: 'L1',
-    content: <NativeMention moduleRef="«Когнитивные искажения» (4 неделя)" />,
-  },
-  {
-    id: 'a5', stampId: 'l7', preferredSide: 'right', type: 'alumni',
-    compactIcon: '💬', compactLabel: 'Анастасия',
-    content: <AlumniCard name="Анастасия Тарунтаева" role="врач → нейрокоуч" quote="«Стресс и эмоции» — урок, после которого всё изменилось." />,
-  },
-  {
-    id: 'a6', stampId: 'test', preferredSide: 'left', type: 'diagnostic',
-    compactIcon: '📅', compactLabel: 'Диагностика',
-    content: <DiagnosticCard />,
-  },
+  { id: 'a1', stampId: 'l1', preferredSide: 'right', type: 'fact', compactIcon: '💡', compactLabel: 'Этимология', content: <FunFact tag="Этимология" text='Слово «коучинг» — из венгерского "kocsi szekér". Дословно — то, что довозит до цели.' tone="sage" compact /> },
+  { id: 'a2', stampId: 'l2', preferredSide: 'left', type: 'alumni', compactIcon: '💬', compactLabel: 'Татьяна', content: <AlumniCard name="Татьяна Азарова" role="скрам-мастер → коуч" quote="Полгода назад прошла этот же курс. 8 клиентов в месяц." /> },
+  { id: 'a3', stampId: 'l4', preferredSide: 'left', type: 'fact', compactIcon: '💡', compactLabel: 'Нейронаука', content: <FunFact tag="Нейронаука" text="До 95% решений мы принимаем неосознанно. Кора рационализирует уже принятое — постфактум." tone="gold" compact /> },
+  { id: 'a4', stampId: 'l5', preferredSide: 'right', type: 'l1', compactIcon: '🎓', compactLabel: 'L1', content: <NativeMention moduleRef="«Когнитивные искажения» (4 неделя)" /> },
+  { id: 'a5', stampId: 'l7', preferredSide: 'right', type: 'alumni', compactIcon: '💬', compactLabel: 'Анастасия', content: <AlumniCard name="Анастасия Тарунтаева" role="врач → нейрокоуч" quote="«Стресс и эмоции» — урок, после которого всё изменилось." /> },
+  { id: 'a6', stampId: 'test', preferredSide: 'left', type: 'diagnostic', compactIcon: '📅', compactLabel: 'Диагностика', content: <DiagnosticCard /> },
 ]
 
-// ─── Adaptive Annotation Card ─────────────────────────────────────────────────
-
-function AnnotationCard({
-  annotation, stamp, mapWidth, isCompact,
-}: {
-  annotation: Annotation
-  stamp: Stamp
-  mapWidth: number
-  isCompact: boolean
-}) {
+function AnnotationCard({ annotation, stamp, mapWidth, isCompact }: { annotation: Annotation; stamp: Stamp; mapWidth: number; isCompact: boolean }) {
   const [popoverOpen, setPopoverOpen] = useState(false)
-
   const markerX = (stamp.x / W) * mapWidth
   const topPct = (stamp.y / H) * 100
 
-  // Close popover on outside click
   useEffect(() => {
     if (!popoverOpen) return
     const handler = () => setPopoverOpen(false)
@@ -224,45 +167,17 @@ function AnnotationCard({
   }, [popoverOpen])
 
   if (isCompact) {
-    // Compact mode: small icon button near the stamp, popover on click
-const rawIconLeft = annotation.preferredSide === 'right'
-      ? markerX + 56
-      : markerX - 56 - 40
+    const rawIconLeft = annotation.preferredSide === 'right' ? markerX + 56 : markerX - 56 - 40
     const iconLeft = Math.max(SAFE, Math.min(rawIconLeft, mapWidth - 40 - SAFE))
-
     return (
       <div style={{ position: 'absolute', left: iconLeft, top: `calc(${topPct}% - 20px)`, zIndex: 5 }}>
-        <button
-          onClick={e => { e.stopPropagation(); setPopoverOpen(p => !p) }}
-          aria-label={annotation.compactLabel}
-          style={{
-            width: 40, height: 40, borderRadius: 999,
-            background: 'var(--surface)', border: '2px solid var(--line)',
-            boxShadow: 'var(--shadow-md)',
-            display: 'grid', placeItems: 'center',
-            cursor: 'pointer', fontSize: 20,
-            transition: 'transform .15s, box-shadow .15s',
-          }}
-        >
+        <button onClick={e => { e.stopPropagation(); setPopoverOpen(p => !p) }} aria-label={annotation.compactLabel}
+          style={{ width: 40, height: 40, borderRadius: 999, background: 'var(--surface)', border: '2px solid var(--line)', boxShadow: 'var(--shadow-md)', display: 'grid', placeItems: 'center', cursor: 'pointer', fontSize: 20, transition: 'transform .15s' }}>
           {annotation.compactIcon}
         </button>
         {popoverOpen && (
-          <div
-            onClick={e => e.stopPropagation()}
-            style={{
-              position: 'absolute',
-              left: '50%',
-              top: 48,
-              transform: 'translateX(-50%)',
-              width: 'min(260px, calc(100vw - 48px))',
-              background: 'var(--surface)',
-              border: '1px solid var(--line)',
-              borderRadius: 12,
-              boxShadow: 'var(--shadow-lg)',
-              zIndex: 20,
-              padding: 4,
-            }}
-          >
+          <div onClick={e => e.stopPropagation()}
+            style={{ position: 'absolute', left: '50%', top: 48, transform: 'translateX(-50%)', width: 'min(260px, calc(100vw - 48px))', background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 12, boxShadow: 'var(--shadow-lg)', zIndex: 20, padding: 4 }}>
             {annotation.content}
           </div>
         )}
@@ -270,36 +185,19 @@ const rawIconLeft = annotation.preferredSide === 'right'
     )
   }
 
-  // Desktop mode: full card with collision-aware positioning
   const leftPx = getSideCardLeft(markerX, mapWidth, annotation.preferredSide)
   const connectorSide = leftPx < markerX ? 'right' : 'left'
-
   return (
     <div style={{ position: 'absolute', left: leftPx, top: `calc(${topPct}% - 22px)`, width: CARD_WIDTH, zIndex: 2 }}>
-      {/* Dashed connector line */}
-      <div style={{
-        position: 'absolute', top: 28,
-        [connectorSide]: '100%',
-        width: Math.abs(markerX - leftPx - (connectorSide === 'right' ? CARD_WIDTH : 0)),
-        height: 1.5,
-        background: 'repeating-linear-gradient(90deg, var(--ink-mute) 0 4px, transparent 4px 8px)',
-        opacity: 0.4,
-      }} />
+      <div style={{ position: 'absolute', top: 28, [connectorSide]: '100%', width: Math.abs(markerX - leftPx - (connectorSide === 'right' ? CARD_WIDTH : 0)), height: 1.5, background: 'repeating-linear-gradient(90deg, var(--ink-mute) 0 4px, transparent 4px 8px)', opacity: 0.4 }} />
       {annotation.content}
     </div>
   )
 }
 
-// ─── Lesson Modal ─────────────────────────────────────────────────────────────
-
 function LessonModal({ lesson, completed, answers, onClose, onMarkDone, onUndo, onSetAnswer }: {
-  lesson: OpenLesson
-  completed: Set<string>
-  answers: Record<string, string>
-  onClose: () => void
-  onMarkDone: (id: string) => void
-  onUndo: (id: string) => void
-  onSetAnswer: (id: string, v: string) => void
+  lesson: OpenLesson; completed: Set<string>; answers: Record<string, string>
+  onClose: () => void; onMarkDone: (id: string) => void; onUndo: (id: string) => void; onSetAnswer: (id: string, v: string) => void
 }) {
   const done = completed.has(lesson.id)
   const answer = answers[lesson.id] ?? ''
@@ -318,8 +216,7 @@ function LessonModal({ lesson, completed, answers, onClose, onMarkDone, onUndo, 
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '13px 18px', borderBottom: '1px solid var(--line)', flexShrink: 0 }}>
           <Eyebrow>{typeof lesson.n === 'number' && lesson.n > 0 ? `Урок ${lesson.n}` : 'Финал'} · {lesson.lecturer}</Eyebrow>
           <MonoChip>{lesson.duration} мин · +{lesson.xp} XP</MonoChip>
-          <button onClick={onClose} aria-label="Закрыть"
-            style={{ marginLeft: 'auto', background: 'none', border: '1px solid var(--line)', borderRadius: 8, padding: 5, cursor: 'pointer', color: 'var(--ink-mute)', display: 'grid', placeItems: 'center', fontSize: 16 }}>✕</button>
+          <button onClick={onClose} aria-label="Закрыть" style={{ marginLeft: 'auto', background: 'none', border: '1px solid var(--line)', borderRadius: 8, padding: 5, cursor: 'pointer', color: 'var(--ink-mute)', display: 'grid', placeItems: 'center', fontSize: 16 }}>✕</button>
         </div>
         <div style={{ overflow: 'auto', padding: 20, display: 'flex', flexDirection: 'column', gap: 14 }}>
           <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 24, fontWeight: 600, letterSpacing: '-0.01em', color: 'var(--ink)', margin: 0 }}>{lesson.title}</h2>
@@ -338,8 +235,7 @@ function LessonModal({ lesson, completed, answers, onClose, onMarkDone, onUndo, 
                 <Eyebrow color="var(--ink-2)">Задание · 1 предложение</Eyebrow>
               </div>
               <p style={{ fontSize: 13.5, color: 'var(--ink)', marginBottom: 10 }}>{lesson.task}</p>
-              <textarea value={answer} onChange={e => onSetAnswer(lesson.id, e.target.value)}
-                placeholder="Напишите одним предложением"
+              <textarea value={answer} onChange={e => onSetAnswer(lesson.id, e.target.value)} placeholder="Напишите одним предложением"
                 style={{ width: '100%', minHeight: 64, resize: 'vertical', padding: 10, fontFamily: 'var(--font-body)', fontSize: 13.5, color: 'var(--ink)', background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 8, outline: 'none', boxSizing: 'border-box' }} />
               <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 6, fontSize: 11.5, color: 'var(--ink-mute)' }}>
                 <span>{answer.length} симв.</span>
@@ -355,9 +251,7 @@ function LessonModal({ lesson, completed, answers, onClose, onMarkDone, onUndo, 
               </div>
             </div>
           )}
-          {'nativePitch' in lesson && lesson.nativePitch && (
-            <NativeMention moduleRef={lesson.nativePitch} />
-          )}
+          {'nativePitch' in lesson && lesson.nativePitch && <NativeMention moduleRef={lesson.nativePitch} />}
           <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginTop: 4 }}>
             {!done ? (
               <button onClick={() => onMarkDone(lesson.id)}
@@ -370,18 +264,13 @@ function LessonModal({ lesson, completed, answers, onClose, onMarkDone, onUndo, 
                 <button onClick={() => onUndo(lesson.id)} style={{ background: 'none', border: 'none', color: 'var(--ink-mute)', fontSize: 12, cursor: 'pointer', padding: '4px 8px' }}>отменить</button>
               </div>
             )}
-            <button onClick={onClose}
-              style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'transparent', color: 'var(--ink)', border: '1px solid var(--line)', padding: '9px 14px', borderRadius: 10, fontWeight: 600, fontSize: 13, fontFamily: 'var(--font-body)', cursor: 'pointer' }}>
-              Закрыть
-            </button>
+            <button onClick={onClose} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'transparent', color: 'var(--ink)', border: '1px solid var(--line)', padding: '9px 14px', borderRadius: 10, fontWeight: 600, fontSize: 13, fontFamily: 'var(--font-body)', cursor: 'pointer' }}>Закрыть</button>
           </div>
         </div>
       </div>
     </div>
   )
 }
-
-// ─── TopBar ───────────────────────────────────────────────────────────────────
 
 function TopBar({ xp, streak, completed }: { xp: number; streak: number; completed: Set<string> }) {
   const level = (() => {
@@ -393,11 +282,9 @@ function TopBar({ xp, streak, completed }: { xp: number; streak: number; complet
     for (let i = 0; i < levels.length; i++) if (xp >= levels[i].min) idx = i
     return { idx, title: levels[idx].title }
   })()
-
   const done = LESSONS.filter(l => completed.has(l.id)).length + FINALS.filter(f => completed.has(f.id)).length
   const total = LESSONS.length + FINALS.length
   const overall = total > 0 ? done / total : 0
-
   return (
     <header style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '13px 24px', background: 'var(--surface)', borderBottom: '1px solid var(--line)', flexShrink: 0, position: 'sticky', top: 0, zIndex: 40, backdropFilter: 'blur(8px)' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 9, minWidth: 0 }}>
@@ -436,8 +323,6 @@ function TopBar({ xp, streak, completed }: { xp: number; streak: number; complet
   )
 }
 
-// ─── Welcome Card ─────────────────────────────────────────────────────────────
-
 function WelcomeCard({ onStart }: { onStart: () => void }) {
   const [playing, setPlaying] = useState(false)
   return (
@@ -475,8 +360,6 @@ function WelcomeCard({ onStart }: { onStart: () => void }) {
   )
 }
 
-// ─── Bonus Grid ───────────────────────────────────────────────────────────────
-
 function BonusGrid({ testDone }: { testDone: boolean }) {
   const cards = [
     { emoji: '⚡', tag: 'Бонус за раннее решение', title: 'Примите решение о L1 до конца курса', body: 'Личная 30-минутная сессия с Александрой + 5% к любому тарифу.', tone: 'terra' as const, cta: 'Узнать подробнее', locked: false },
@@ -484,11 +367,7 @@ function BonusGrid({ testDone }: { testDone: boolean }) {
     { emoji: '💬', tag: 'Кейс выпускника', title: 'Татьяна, скрам-мастер → нейрокоуч', body: 'Прошла курс в апреле, сейчас ведёт 8 клиентов в месяц по 50 €.', tone: 'gold' as const, cta: 'Читать историю', locked: false },
     { emoji: '📚', tag: 'Дополнительные материалы', title: 'Пять препятствий на пути коуча', body: 'Лекция Александры Болдиной + чек-листы + статья про компетенции INCF.', tone: 'sage' as const, cta: 'Открыть материалы', locked: false },
   ]
-  const tones = {
-    terra: { bg: 'var(--terra-tint)', ink: 'var(--terra-2)' },
-    sage:  { bg: 'var(--sage-tint)',  ink: 'var(--sage-2)' },
-    gold:  { bg: 'var(--gold-tint)',  ink: 'var(--gold-2)' },
-  }
+  const tones = { terra: { bg: 'var(--terra-tint)', ink: 'var(--terra-2)' }, sage: { bg: 'var(--sage-tint)', ink: 'var(--sage-2)' }, gold: { bg: 'var(--gold-tint)', ink: 'var(--gold-2)' } }
   return (
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,1fr)', gap: 12 }}>
       {cards.map((c, i) => {
@@ -512,15 +391,12 @@ function BonusGrid({ testDone }: { testDone: boolean }) {
   )
 }
 
-// ─── Roadmap SVG + Stamps ─────────────────────────────────────────────────────
-
 function PathRoad({ completed }: { completed: Set<string> }) {
   const isStampDone = (s: Stamp): boolean => {
     if (s.kind === 'badge') return blockProgress(s.blockId!, completed).ratio >= 1
     if (s.kind === 'cert') return FINALS.every(f => completed.has(f.id))
     return completed.has(s.id)
   }
-
   return (
     <svg viewBox={`0 0 ${W} ${H}`} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none' }}>
       <defs>
@@ -604,8 +480,7 @@ function RoadmapStamp({ stamp, completed, nextId, isLocked, onOpen }: {
   return (
     <button
       onClick={() => { if (status === 'locked') return; const l = getLessonForModal(); if (l) onOpen(l) }}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
+      onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}
       aria-label={`${label}, ${status === 'done' ? 'пройдено' : status === 'next' ? 'следующее' : status === 'locked' ? 'заблокировано' : 'доступно'}`}
       style={{
         position: 'absolute',
@@ -614,8 +489,7 @@ function RoadmapStamp({ stamp, completed, nextId, isLocked, onOpen }: {
         width: size, height: size,
         borderRadius: kind === 'badge' ? 18 : kind === 'cert' ? 22 : 999,
         transform: hovered && status !== 'locked' ? `${rot} scale(1.05)` : rot,
-        background: palette.fill, color: palette.ink,
-        border: `3px solid ${palette.ring}`,
+        background: palette.fill, color: palette.ink, border: `3px solid ${palette.ring}`,
         boxShadow: status === 'next' ? `0 0 0 4px color-mix(in oklch, var(--terra-2) 20%, transparent), 0 8px 18px -8px rgba(0,0,0,.25)` : '0 6px 14px -8px rgba(0,0,0,.25)',
         display: 'grid', placeItems: 'center', padding: 0,
         cursor: status === 'locked' ? 'not-allowed' : 'pointer',
@@ -648,23 +522,42 @@ function RoadmapStamp({ stamp, completed, nextId, isLocked, onOpen }: {
   )
 }
 
-// ─── Main Roadmap Page ────────────────────────────────────────────────────────
+// ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function RoadmapPage() {
-  const [completed, setCompleted] = useState<Set<string>>(new Set(['intro', 'l1']))
-  const [answers, setAnswers] = useState<Record<string, string>>({ l1: 'Хочу понять, почему я откладываю важные разговоры.' })
+  const [completed, setCompleted] = useState<Set<string>>(new Set())
+  const [answers, setAnswers] = useState<Record<string, string>>({})
   const [openLesson, setOpenLesson] = useState<OpenLesson | null>(null)
   const [mapWidth, setMapWidth] = useState(0)
+  const [loading, setLoading] = useState(true)
   const mapRef = useRef<HTMLDivElement>(null)
 
   const streak = 3
   const xp = computeXP(completed)
 
-  const markDone = useCallback((id: string) => setCompleted(prev => new Set([...prev, id])), [])
-  const undo = useCallback((id: string) => setCompleted(prev => { const s = new Set(prev); s.delete(id); return s }), [])
-  const setAnswer = useCallback((id: string, v: string) => setAnswers(prev => ({ ...prev, [id]: v })), [])
+  useEffect(() => {
+    loadProgress().then(({ completed: c, answers: a }) => {
+      setCompleted(new Set(c))
+      setAnswers(a)
+      setLoading(false)
+    })
+  }, [])
 
-  // Measure map container width and update on resize
+  const markDone = useCallback(async (id: string) => {
+    setCompleted(prev => new Set([...prev, id]))
+    await markStepDone(id)
+  }, [])
+
+  const undo = useCallback(async (id: string) => {
+    setCompleted(prev => { const s = new Set(prev); s.delete(id); return s })
+    await undoStep(id)
+  }, [])
+
+  const setAnswer = useCallback(async (id: string, v: string) => {
+    setAnswers(prev => ({ ...prev, [id]: v }))
+    await saveAnswer(id, v)
+  }, [])
+
   useLayoutEffect(() => {
     const el = mapRef.current
     if (!el) return
@@ -687,6 +580,12 @@ export default function RoadmapPage() {
   const nextLesson: OpenLesson | null = (LESSONS.find(l => !completed.has(l.id)) ?? FINALS.find(f => !completed.has(f.id)) ?? null) as OpenLesson | null
   const testDone = completed.has('test')
 
+  if (loading) return (
+    <div style={{ minHeight: '100vh', background: '#ece9e2', display: 'grid', placeItems: 'center' }}>
+      <div style={{ color: 'var(--ink-mute)', fontSize: 14 }}>Загружаем ваш прогресс...</div>
+    </div>
+  )
+
   return (
     <>
       <style>{`
@@ -697,18 +596,14 @@ export default function RoadmapPage() {
       <div style={{ background: '#ece9e2', minHeight: '100vh', padding: '20px 14px 56px' }}>
         <div style={{ maxWidth: 1140, margin: '0 auto', background: 'var(--bg)', borderRadius: 20, overflow: 'clip', boxShadow: '0 24px 60px -20px rgba(20,18,16,.18), 0 0 0 1px rgba(20,18,16,.05)' }}>
           <TopBar xp={xp} streak={streak} completed={completed} />
-
           <div style={{ padding: '18px 24px 28px', display: 'flex', flexDirection: 'column', gap: 14 }}>
             <WelcomeCard onStart={() => { if (nextLesson) setOpenLesson(nextLesson) }} />
-
-            {/* Roadmap section */}
             <section style={{ background: 'linear-gradient(180deg, var(--surface) 0%, var(--bg) 85%)', borderRadius: 18, border: '1px solid var(--line)', boxShadow: 'var(--shadow-md)', padding: '18px 18px 24px', position: 'relative' }}>
               <header style={{ display: 'flex', alignItems: 'center', gap: 10, justifyContent: 'flex-end', marginBottom: 14, padding: '0 4px', fontSize: 11, color: 'var(--ink-mute)' }}>
                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}><span style={{ width: 11, height: 11, borderRadius: 999, background: 'var(--terra-2)', display: 'inline-block' }} /> Пройдено</span>
                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}><span style={{ width: 11, height: 11, borderRadius: 999, border: '2px solid var(--terra-2)', display: 'inline-block' }} /> Сейчас</span>
                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}><span style={{ width: 11, height: 11, borderRadius: 3, background: 'var(--gold)', transform: 'rotate(-6deg)', display: 'inline-block' }} /> Бейдж</span>
               </header>
-
               <div ref={mapRef} style={{ position: 'relative', width: '100%', aspectRatio: `${W} / ${H}` }}>
                 <PathRoad completed={completed} />
                 {STAMPS.map(stamp => (
@@ -717,19 +612,10 @@ export default function RoadmapPage() {
                 {mapWidth > 0 && ANNOTATIONS.map(annotation => {
                   const stamp = STAMPS.find(s => s.id === annotation.stampId)
                   if (!stamp) return null
-                  return (
-                    <AnnotationCard
-                      key={annotation.id}
-                      annotation={annotation}
-                      stamp={stamp}
-                      mapWidth={mapWidth}
-                      isCompact={isCompact}
-                    />
-                  )
+                  return <AnnotationCard key={annotation.id} annotation={annotation} stamp={stamp} mapWidth={mapWidth} isCompact={isCompact} />
                 })}
               </div>
             </section>
-
             <BonusGrid testDone={testDone} />
           </div>
         </div>
