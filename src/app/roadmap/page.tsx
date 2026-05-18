@@ -673,7 +673,7 @@ const testDone = completed.has('test')
         </div>
       </div>
 
-      {openLesson && (
+ {openLesson && (
         <LessonModal
           lesson={openLesson}
           completed={completed}
@@ -684,6 +684,38 @@ const testDone = completed.has('test')
           onSetAnswer={setAnswer}
         />
       )}
+
+      {/* Support button */}
+      <a
+        href="https://t.me/incf_team"
+        target="_blank"
+        rel="noopener noreferrer"
+        aria-label="Написать в поддержку"
+        className="tg-btn"
+        style={{
+          position: 'fixed',
+          bottom: 24,
+          right: 24,
+          zIndex: 45,
+          width: 52,
+          height: 52,
+          borderRadius: 999,
+          background: '#29A8E0',
+          color: '#fff',
+          display: 'grid',
+          placeItems: 'center',
+          boxShadow: '0 4px 16px -4px rgba(41,168,224,.6)',
+          textDecoration: 'none',
+          transition: 'transform .15s, box-shadow .15s',
+        }}
+      >
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+          <path
+            d="M12 2C6.477 2 2 6.477 2 12s4.477 10 10 10 10-4.477 10-10S17.523 2 12 2zm4.93 6.686l-1.68 7.92c-.126.558-.456.694-.924.432l-2.556-1.883-1.233 1.187c-.136.136-.25.25-.513.25l.183-2.596 4.722-4.267c.205-.183-.045-.284-.318-.1L8.078 13.94l-2.513-.785c-.546-.171-.557-.546.114-.808l9.81-3.783c.455-.165.853.11.441.122z"
+            fill="white"
+          />
+        </svg>
+      </a>
     </>
   )
 }
