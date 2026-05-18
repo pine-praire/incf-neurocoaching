@@ -249,8 +249,7 @@ function TopBar({ xp, streak, completed }: { xp: number; streak: number; complet
   const overall = total > 0 ? done / total : 0
 
   return (
-    <header style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '13px 24px', background: 'var(--surface)', borderBottom: '1px solid var(--line)', flexShrink: 0 }}>
-      {/* Logo */}
+<header style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '13px 24px', background: 'var(--surface)', borderBottom: '1px solid var(--line)', flexShrink: 0, position: 'sticky', top: 0, zIndex: 40, backdropFilter: 'blur(8px)' }}>      {/* Logo */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 9, minWidth: 0 }}>
         <div style={{ width: 32, height: 32, borderRadius: 8, background: 'var(--terra-2)', color: '#fff', display: 'grid', placeItems: 'center', fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 14, flexShrink: 0 }}>i</div>
         <div>
@@ -593,8 +592,8 @@ export default function RoadmapPage() {
     return idx > firstUndoneIdx + 1
   }
 
-  const nextLesson: OpenLesson | null = LESSONS.find(l => !completed.has(l.id)) ?? FINALS.find(f => !completed.has(f.id)) as OpenLesson ?? null
-  const testDone = completed.has('test')
+const nextLesson: OpenLesson | null = (LESSONS.find(l => !completed.has(l.id)) ?? FINALS.find(f => !completed.has(f.id)) ?? null) as OpenLesson | null
+const testDone = completed.has('test')
 
   const openFirst = () => { if (nextLesson) setOpenLesson(nextLesson) }
 
@@ -606,7 +605,7 @@ export default function RoadmapPage() {
       `}</style>
 
       <div style={{ background: '#ece9e2', minHeight: '100vh', padding: '20px 14px 56px' }}>
-        <div style={{ maxWidth: 1140, margin: '0 auto', background: 'var(--bg)', borderRadius: 20, overflow: 'hidden', boxShadow: '0 24px 60px -20px rgba(20,18,16,.18), 0 0 0 1px rgba(20,18,16,.05)' }}>
+        <div style={{ maxWidth: 1140, margin: '0 auto', background: 'var(--bg)', borderRadius: 20, overflow: 'clip', boxShadow: '0 24px 60px -20px rgba(20,18,16,.18), 0 0 0 1px rgba(20,18,16,.05)' }}>
           <TopBar xp={xp} streak={streak} completed={completed} />
 
           <div style={{ padding: '18px 24px 28px', display: 'flex', flexDirection: 'column', gap: 14 }}>
@@ -616,11 +615,6 @@ export default function RoadmapPage() {
             {/* Roadmap section */}
             <section style={{ background: `linear-gradient(180deg, var(--surface) 0%, var(--bg) 85%)`, borderRadius: 18, border: '1px solid var(--line)', boxShadow: 'var(--shadow-md)', padding: '18px 18px 24px', position: 'relative' }}>
               <header style={{ display: 'flex', alignItems: 'flex-end', gap: 14, justifyContent: 'space-between', marginBottom: 14, padding: '0 4px' }}>
-                <div>
-                  <Eyebrow>Карта курса</Eyebrow>
-                  <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 22, fontWeight: 600, marginTop: 4, marginBottom: 4, color: 'var(--ink)' }}>Путь приключений</h2>
-                  <p style={{ color: 'var(--ink-soft)', fontSize: 12.5, margin: 0 }}>Маршрут от старта до сертификата. Между уроками — бейджи и истории выпускников.</p>
-                </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 11, color: 'var(--ink-mute)', flexShrink: 0 }}>
                   <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}><span style={{ width: 11, height: 11, borderRadius: 999, background: 'var(--terra-2)', display: 'inline-block' }} /> Пройдено</span>
                   <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}><span style={{ width: 11, height: 11, borderRadius: 999, border: '2px solid var(--terra-2)', display: 'inline-block' }} /> Сейчас</span>
