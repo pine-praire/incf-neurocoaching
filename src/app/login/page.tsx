@@ -27,7 +27,7 @@ export default function LoginPage() {
         password,
         options: {
           data: { name },
-emailRedirectTo: `${window.location.origin}/auth/callback`,
+          emailRedirectTo: `${window.location.origin}/auth/callback`,
         },
       })
       if (error) setError(error.message)
@@ -46,7 +46,7 @@ emailRedirectTo: `${window.location.origin}/auth/callback`,
     setError(null)
     const { error } = await supabase.auth.signInWithOtp({
       email,
-      options: { emailRedirectTo: `${window.location.origin}//auth/callback` },
+      options: { emailRedirectTo: `${window.location.origin}/auth/callback` },
     })
     if (error) setError(error.message)
     else setSent(true)

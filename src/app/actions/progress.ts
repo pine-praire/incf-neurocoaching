@@ -71,15 +71,23 @@ export async function saveAnswer(lessonId: string, text: string) {
 export async function loadProgress() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return { completed: [], answers: {} }
+  if (!user) return { completed: [], answers: {}, userName: '' }
 
   const [{ data: progress }, { data: answers }] = await Promise.all([
     supabase.from('progress').select('step_id').eq('user_id', user.id),
     supabase.from('answers').select('lesson_id, text').eq('user_id', user.id),
   ])
 
+  console.log('user_metadata:', user.user_metadata)
+  const userName = user.user_metadata?.name
+    || user.user_metadata?.full_name
+    || user.user_metadata?.display_name
+    || user.email?.split('@')[0]
+    || ''
+
   return {
     completed: (progress ?? []).map(p => p.step_id),
     answers: Object.fromEntries((answers ?? []).map(a => [a.lesson_id, a.text ?? ''])),
+    userName,
   }
 }
