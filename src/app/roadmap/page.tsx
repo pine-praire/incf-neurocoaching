@@ -490,7 +490,7 @@ export default function RoadmapPage() {
       <div style={{ background: '#ece9e2', minHeight: '100vh', padding: '20px 14px 56px' }}>
         <div style={{ maxWidth: 1140, margin: '0 auto', background: 'var(--bg)', borderRadius: 20, overflow: 'clip', boxShadow: '0 24px 60px -20px rgba(20,18,16,.18), 0 0 0 1px rgba(20,18,16,.05)' }}>
           <TopBar xp={xp} streak={streak} completed={completed} />
-          <div style={{ padding: '18px 24px 28px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <div style={{ padding: '24px 32px 36px', display: 'flex', flexDirection: 'column', gap: 14 }}>
 <HeroBlock
 userName={userName}
   completed={completed}

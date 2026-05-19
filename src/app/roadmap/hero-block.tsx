@@ -281,7 +281,7 @@ export function HeroBlock({ userName, completed, onOpenLesson }: HeroBlockProps)
       borderRadius: 16,
       overflow: 'hidden',
       display: 'grid',
-      gridTemplateColumns: '420px 1fr',
+      gridTemplateColumns: '360px 1fr',
       minHeight: 320,
       border: '1px solid var(--line)',
       boxShadow: 'var(--shadow-md)',

@@ -84,7 +84,7 @@ export function WelcomeCard({ onStart }: { onStart: () => void }) {
         <p style={{ color: 'var(--ink-soft)', fontSize: 13.5, margin: 0 }}>Сегодня — 3 минуты. Короткий тест, который определит Ваш стиль принятия решений. С него начнётся всё дальнейшее.</p>
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-        <button onClick={onStart} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, background: 'var(--terra-2)', color: '#fff', border: 'none', padding: '10px 16px', borderRadius: 10, fontWeight: 600, fontSize: 12.5, fontFamily: 'var(--font-body)', cursor: 'pointer', boxShadow: '0 6px 16px -6px rgba(180,80,50,.5)', whiteSpace: 'nowrap' }}>
+        <button onClick={onStart} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, background: 'var(--terra-2)', color: '#fff', border: 'none', padding: '10px 16px', borderRadius: 999, fontWeight: 600, fontSize: 12.5, fontFamily: 'var(--font-body)', cursor: 'pointer', boxShadow: '0 6px 16px -6px rgba(180,80,50,.5)', whiteSpace: 'nowrap' }}>
           ▶ Начать урок дня
         </button>
         <button style={{ display: 'inline-flex', alignItems: 'center', gap: 7, background: 'transparent', color: 'var(--ink)', border: '1px solid var(--line)', padding: '9px 14px', borderRadius: 10, fontWeight: 600, fontSize: 12.5, fontFamily: 'var(--font-body)', cursor: 'pointer', whiteSpace: 'nowrap' }}>

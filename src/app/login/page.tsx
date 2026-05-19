@@ -231,7 +231,7 @@ const errorStyle: React.CSSProperties = {
 
 const submitStyle = (loading: boolean): React.CSSProperties => ({
   background: 'var(--terra-2)', color: '#fff',
-  border: 'none', borderRadius: 10,
+  border: 'none', borderRadius: 999,
   padding: '11px 16px', fontWeight: 600, fontSize: 14,
   fontFamily: 'var(--font-body)', cursor: loading ? 'not-allowed' : 'pointer',
   opacity: loading ? 0.7 : 1,
