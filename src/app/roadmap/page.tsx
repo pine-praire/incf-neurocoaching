@@ -455,7 +455,7 @@ export default function RoadmapPage() {
     const ro = new ResizeObserver(update)
     ro.observe(el)
     return () => ro.disconnect()
-  }, [])
+  }, [loading])
 
   const isCompact = mapWidth > 0 && mapWidth < 1100
 

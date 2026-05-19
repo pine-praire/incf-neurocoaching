@@ -269,6 +269,11 @@ export function HeroBlock({ userName, completed, onOpenLesson }: HeroBlockProps)
 
   const firstName = userName.split(' ')[0] || userName
 
+  const nextIdx = LESSONS.findIndex(l => !completed.has(l.id))
+  const safeNext = nextIdx === -1 ? LESSONS.length - 1 : nextIdx
+  const windowStart = Math.max(0, Math.min(safeNext - 1, LESSONS.length - 5))
+  const visibleLessons = LESSONS.slice(windowStart, windowStart + 5)
+
   return (
     <div style={{
       width: '100%',
@@ -306,7 +311,8 @@ export function HeroBlock({ userName, completed, onOpenLesson }: HeroBlockProps)
 
         {/* Lesson outline */}
         <ol style={{ marginTop: 20, flex: 1, display: 'flex', flexDirection: 'column', listStyle: 'none', padding: 0 }}>
-          {LESSONS.map((lesson, i) => {
+          {visibleLessons.map((lesson) => {
+            const i = LESSONS.indexOf(lesson)
             const done = completed.has(lesson.id)
             const isNext = !done && (i === 0 || completed.has(LESSONS[i - 1].id))
             return (
