@@ -223,11 +223,24 @@ function LessonModal({ lesson, completed, answers, onClose, onMarkDone, onUndo, 
         <div style={{ overflow: 'auto', padding: 20, display: 'flex', flexDirection: 'column', gap: 14 }}>
           <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 24, fontWeight: 600, letterSpacing: '-0.01em', color: 'var(--ink)', margin: 0 }}>{lesson.title}</h2>
           {lesson.subtitle && <p style={{ color: 'var(--ink-soft)', fontSize: 13.5, margin: '-6px 0 0' }}>{lesson.subtitle}</p>}
-          <div style={{ aspectRatio: '16/9', borderRadius: 12, overflow: 'hidden', background: 'oklch(0.18 0.02 250)', backgroundImage: 'repeating-linear-gradient(135deg,oklch(0.18 0.02 250) 0 8px,oklch(0.22 0.02 250) 8px 16px)', display: 'grid', placeItems: 'center', color: '#f5f1e8' }}>
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
-              <div style={{ width: 52, height: 52, borderRadius: 999, background: '#fff', display: 'grid', placeItems: 'center', fontSize: 28, color: '#1a1a1a' }}>▶</div>
-              <MonoChip>YOUTUBE · {lesson.id.toUpperCase()} · {lesson.duration}:00</MonoChip>
-            </div>
+          <div style={{ aspectRatio: '16/9', borderRadius: 12, overflow: 'hidden' }}>
+            {'youtubeId' in lesson && (lesson as any).youtubeId ? (
+              <iframe
+                width="100%"
+                height="100%"
+                src={`https://www.youtube.com/embed/${(lesson as any).youtubeId}`}
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+                style={{ border: 'none', display: 'block' }}
+              />
+            ) : (
+              <div style={{ width: '100%', height: '100%', background: 'oklch(0.18 0.02 250)', backgroundImage: 'repeating-linear-gradient(135deg,oklch(0.18 0.02 250) 0 8px,oklch(0.22 0.02 250) 8px 16px)', display: 'grid', placeItems: 'center', color: '#f5f1e8' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
+                  <div style={{ width: 52, height: 52, borderRadius: 999, background: '#fff', display: 'grid', placeItems: 'center', fontSize: 28, color: '#1a1a1a' }}>▶</div>
+                  <MonoChip>YOUTUBE · {lesson.id.toUpperCase()} · {lesson.duration}:00</MonoChip>
+                </div>
+              </div>
+            )}
           </div>
           <FunFact tag={lesson.factTag} text={lesson.fact} tone="sage" />
           {lesson.task && (

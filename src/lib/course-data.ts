@@ -16,6 +16,7 @@ export interface Lesson {
   pre?: string
   blockId: string
   nativePitch?: string // module name for L1 mention (lessons 2 and 5 only)
+  youtubeId?: string
 }
 
 export interface Block {
@@ -50,6 +51,7 @@ export const LESSONS: Lesson[] = [
     fact: 'Слово «коучинг» — из венгерского "kocsi szekér" — повозка из города Кочи. Дословно — то, что довозит до цели.',
     factTag: 'Этимология',
     pre: 'До следующего урока: вспомни три ситуации, где ты замечала, как мозг подсказывает решение.',
+    youtubeId: 'gP7CY4szUbg',
   },
   {
     id: 'l2', n: 2, blockId: 'b1',
