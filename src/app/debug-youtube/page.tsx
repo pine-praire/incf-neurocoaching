@@ -7,7 +7,7 @@ export default function DebugYoutube() {
         If this works but /roadmap does not, the issue is in the modal component.
         If this also fails, the issue is in server headers / referrer policy.
       </p>
-      <div style={{ position: 'relative', aspectRatio: '16/9', borderRadius: 12, overflow: 'hidden', background: '#111' }}>
+      <div style={{ position: 'relative', width: '100%', paddingBottom: '56.25%', borderRadius: 12, overflow: 'hidden', background: '#111' }}>
         <iframe
           src="https://www.youtube.com/embed/gP7CY4szUbg"
           title="YouTube video player"
