@@ -229,8 +229,10 @@ function LessonModal({ lesson, completed, answers, onClose, onMarkDone, onUndo, 
                 width="100%"
                 height="100%"
                 src={`https://www.youtube.com/embed/${(lesson as any).youtubeId}`}
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                title={lesson.title}
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                 allowFullScreen
+                referrerPolicy="strict-origin-when-cross-origin"
                 style={{ border: 'none', display: 'block' }}
               />
             ) : (
