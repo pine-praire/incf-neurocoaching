@@ -86,6 +86,7 @@ export const LESSONS: Lesson[] = [
     task: null,
     fact: 'До 95% решений мы принимаем неосознанно. Кора большого мозга чаще всего рационализирует уже принятое — постфактум.',
     factTag: 'Нейронаука',
+    youtubeId: 'lsXYU9wbVkI',
   },
   {
     id: 'l5', n: 5, blockId: 'b2',
