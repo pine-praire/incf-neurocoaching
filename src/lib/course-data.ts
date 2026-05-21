@@ -98,6 +98,7 @@ export const LESSONS: Lesson[] = [
     factTag: 'Привычки',
     pre: 'До следующего урока: подумай о коммуникации, где тебя «не слышат». Чего там не хватает?',
     nativePitch: '«Когнитивные искажения» (модуль 4)',
+    youtubeId: '49mMzL0LTj0',
   },
   {
     id: 'l6', n: 6, blockId: 'b3',
