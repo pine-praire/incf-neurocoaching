@@ -64,7 +64,7 @@ export const LESSONS: Lesson[] = [
     factTag: 'Нейрофизиология',
     pre: 'До следующего урока: посмотри одну демо-сессию коуча на YouTube и заметь, что делает коуч.',
     nativePitch: '«Нейрофизиология» (модуль 2)',
-    youtubeId: 'n5VJnTBtpLQ',
+    youtubeId: 'ua3nzkwKlis',
   },
   {
     id: 'l3', n: 3, blockId: 'b1',
