@@ -67,6 +67,23 @@ export async function saveAnswer(lessonId: string, text: string) {
   return { ok: true }
 }
 
+// Save certificate name
+export async function saveCertificateName(name: string) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Not authenticated' }
+
+  const { error } = await supabase
+    .from('answers')
+    .upsert(
+      { user_id: user.id, lesson_id: 'certificate_name', text: name, updated_at: new Date().toISOString() },
+      { onConflict: 'user_id,lesson_id' }
+    )
+
+  if (error) return { error: error.message }
+  return { ok: true }
+}
+
 // Load all progress for current user
 export async function loadProgress() {
   const supabase = await createClient()

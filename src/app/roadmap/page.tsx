@@ -9,6 +9,7 @@ import {
 import { markStepDone, undoStep, saveAnswer, loadProgress } from '@/app/actions/progress'
 import { HeroBlock } from './hero-block'
 import { TopBar, BonusGrid } from './roadmap-ui'
+import { FinalTestModal } from './final-test-modal'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -327,9 +328,9 @@ function PathRoad({ completed }: { completed: Set<string> }) {
   )
 }
 
-function RoadmapStamp({ stamp, completed, nextId, isLocked, onOpen }: {
+function RoadmapStamp({ stamp, completed, nextId, isLocked, onOpen, onFinalTest }: {
   stamp: Stamp; completed: Set<string>; nextId: string | null
-  isLocked: (id: string) => boolean; onOpen: (lesson: OpenLesson) => void
+  isLocked: (id: string) => boolean; onOpen: (lesson: OpenLesson) => void; onFinalTest?: () => void
 }) {
   const [hovered, setHovered] = useState(false)
   const { id, x, y, kind } = stamp
@@ -377,7 +378,7 @@ function RoadmapStamp({ stamp, completed, nextId, isLocked, onOpen }: {
 
   return (
     <button
-      onClick={() => { if (status === 'locked') return; const l = getLessonForModal(); if (l) onOpen(l) }}
+      onClick={() => { if (status === 'locked') return; if (id === 'test') { onFinalTest?.(); return; } const l = getLessonForModal(); if (l) onOpen(l) }}
       onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}
       aria-label={`${label}, ${status === 'done' ? 'пройдено' : status === 'next' ? 'следующее' : status === 'locked' ? 'заблокировано' : 'доступно'}`}
       style={{
@@ -426,6 +427,7 @@ export default function RoadmapPage() {
   const [completed, setCompleted] = useState<Set<string>>(new Set())
   const [answers, setAnswers] = useState<Record<string, string>>({})
   const [openLesson, setOpenLesson] = useState<OpenLesson | null>(null)
+  const [showFinalTest, setShowFinalTest] = useState(false)
   const [mapWidth, setMapWidth] = useState(0)
   const [loading, setLoading] = useState(true)
   const [userName, setUserName] = useState('')
@@ -521,7 +523,7 @@ userName={userName}
               <div ref={mapRef} style={{ position: 'relative', width: '100%', aspectRatio: `${W} / ${H}` }}>
                 <PathRoad completed={completed} />
                 {STAMPS.map(stamp => (
-                  <RoadmapStamp key={stamp.id} stamp={stamp} completed={completed} nextId={nextLesson?.id ?? null} isLocked={isLocked} onOpen={setOpenLesson} />
+                  <RoadmapStamp key={stamp.id} stamp={stamp} completed={completed} nextId={nextLesson?.id ?? null} isLocked={isLocked} onOpen={setOpenLesson} onFinalTest={() => setShowFinalTest(true)} />
                 ))}
                 {mapWidth > 0 && ANNOTATIONS.map(annotation => {
                   const stamp = STAMPS.find(s => s.id === annotation.stampId)
@@ -538,6 +540,13 @@ userName={userName}
       {openLesson && (
         <LessonModal lesson={openLesson} completed={completed} answers={answers}
           onClose={() => setOpenLesson(null)} onMarkDone={markDone} onUndo={undo} onSetAnswer={setAnswer} />
+      )}
+
+      {showFinalTest && (
+        <FinalTestModal
+          onClose={() => setShowFinalTest(false)}
+          onPass={() => { markDone('test'); setShowFinalTest(false) }}
+        />
       )}
 
       <a href="https://t.me/incf_team" target="_blank" rel="noopener noreferrer"
