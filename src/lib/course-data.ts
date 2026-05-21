@@ -55,7 +55,7 @@ export const LESSONS: Lesson[] = [
   },
   {
     id: 'l2', n: 2, blockId: 'b1',
-    title: 'Потенциал мозга',
+    title: 'Уточнение цели и результата',
     subtitle: 'Нейропластичность: как мозг учится и приспосабливается',
     lecturer: 'Валентина Груздева',
     duration: 14, xp: 60,
@@ -64,6 +64,7 @@ export const LESSONS: Lesson[] = [
     factTag: 'Нейрофизиология',
     pre: 'До следующего урока: посмотри одну демо-сессию коуча на YouTube и заметь, что делает коуч.',
     nativePitch: '«Нейрофизиология» (модуль 2)',
+    youtubeId: 'n5VJnTBtpLQ',
   },
   {
     id: 'l3', n: 3, blockId: 'b1',
