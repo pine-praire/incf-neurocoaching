@@ -161,11 +161,10 @@ export async function POST(request: Request) {
       }).eq("id", eventLog.id)
     }
 
-    return NextResponse.json({
-      ok: true,
-      user_id: userId,
-      course_id: courseId,
-      magic_link: linkData.properties.action_link ?? null,
+    const magicLink = linkData.properties.action_link ?? ''
+    return new Response(magicLink, {
+      status: 200,
+      headers: { 'Content-Type': 'text/plain' },
     })
 
   } catch (error) {
