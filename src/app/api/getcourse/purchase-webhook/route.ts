@@ -12,7 +12,7 @@ function normalizeEmail(email: string) {
 function isPaidStatus(status?: string) {
   if (!status) return false
   const normalized = status.trim().toLowerCase()
-  return ["paid", "success", "оплачен", "оплачено"].includes(normalized)
+  return ["paid", "success", "оплачен", "оплачено", "completed"].includes(normalized)
 }
 
 export async function POST(request: Request) {
@@ -32,9 +32,28 @@ export async function POST(request: Request) {
 
   let payload: GetCoursePurchasePayload
   try {
-    payload = await request.json()
+    const contentType = request.headers.get("content-type") ?? ""
+    if (contentType.includes("application/json")) {
+      payload = await request.json()
+    } else {
+      const text = await request.text()
+      const params = new URLSearchParams(text)
+      payload = {
+        event_type: params.get("event_type") ?? undefined,
+        getcourse_user_id: params.get("getcourse_user_id") ?? undefined,
+        email: params.get("email") ?? undefined,
+        first_name: params.get("first_name") ?? undefined,
+        last_name: params.get("last_name") ?? undefined,
+        phone: params.get("phone") ?? undefined,
+        order_id: params.get("order_id") ?? undefined,
+        offer_id: params.get("offer_id") ?? undefined,
+        product_title: params.get("product_title") ?? undefined,
+        payment_status: params.get("payment_status") ?? undefined,
+        paid_at: params.get("paid_at") ?? undefined,
+      }
+    }
   } catch {
-    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 })
+    return NextResponse.json({ error: "Invalid request body" }, { status: 400 })
   }
 
   const eventKey = payload.order_id ? `purchase:${payload.order_id}` : undefined
