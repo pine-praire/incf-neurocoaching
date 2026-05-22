@@ -7,6 +7,7 @@ import {
   type Lesson,
 } from '@/lib/course-data'
 import { markStepDone, undoStep, saveAnswer, loadProgress } from '@/app/actions/progress'
+import { createClient } from '@/lib/supabase/client'
 import { HeroBlock } from './hero-block'
 import { TopBar, BonusGrid } from './roadmap-ui'
 import { FinalTestModal } from './final-test-modal'
@@ -436,14 +437,31 @@ export default function RoadmapPage() {
   const streak = 3
   const xp = computeXP(completed)
 
+  const handleSignOut = useCallback(async () => {
+    sessionStorage.removeItem('incf_active')
+    await createClient().auth.signOut()
+    window.location.href = '/login'
+  }, [])
+
   useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    if (params.get('session') === 'start') {
+      sessionStorage.setItem('incf_active', '1')
+      window.history.replaceState({}, '', '/roadmap')
+    } else if (!sessionStorage.getItem('incf_active')) {
+      createClient().auth.signOut().then(() => {
+        window.location.href = '/login'
+      })
+      return
+    }
+
     loadProgress()
       .then(({ completed: c, answers: a, userName: n }) => {
         setCompleted(new Set(c))
         setAnswers(a)
         setUserName(n)
       })
-      .catch(() => { /* not authenticated — middleware will redirect */ })
+      .catch(() => {})
       .finally(() => setLoading(false))
   }, [])
 
@@ -504,7 +522,7 @@ export default function RoadmapPage() {
 
       <div style={{ background: '#ece9e2', minHeight: '100vh', padding: '20px 14px 56px' }}>
         <div style={{ maxWidth: 1140, margin: '0 auto', background: 'var(--bg)', borderRadius: 20, overflow: 'clip', boxShadow: '0 24px 60px -20px rgba(20,18,16,.18), 0 0 0 1px rgba(20,18,16,.05)' }}>
-          <TopBar xp={xp} streak={streak} completed={completed} />
+          <TopBar xp={xp} streak={streak} completed={completed} userName={userName} onSignOut={handleSignOut} />
           <div style={{ padding: '24px 32px 36px', display: 'flex', flexDirection: 'column', gap: 14 }}>
 <HeroBlock
 userName={userName}

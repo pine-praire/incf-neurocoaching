@@ -7,7 +7,10 @@ function Eyebrow({ children, color = 'var(--terra-2)' }: { children: React.React
   return <span style={{ fontSize: 9.5, fontWeight: 700, letterSpacing: '.14em', textTransform: 'uppercase', color }}>{children}</span>
 }
 
-export function TopBar({ xp, streak, completed }: { xp: number; streak: number; completed: Set<string> }) {
+export function TopBar({ xp, streak, completed, userName, onSignOut }: {
+  xp: number; streak: number; completed: Set<string>; userName?: string; onSignOut?: () => void
+}) {
+  const [menuOpen, setMenuOpen] = useState(false)
   const level = (() => {
     const levels = [
       { min: 0, title: 'Любопытный новичок' }, { min: 80, title: 'Исследователь мозга' },
@@ -53,7 +56,27 @@ export function TopBar({ xp, streak, completed }: { xp: number; streak: number; 
           </div>
         </div>
       </div>
-      <div style={{ width: 34, height: 34, borderRadius: 999, background: 'var(--bg-deep)', display: 'grid', placeItems: 'center', fontWeight: 700, fontSize: 12, fontFamily: 'var(--font-display)', color: 'var(--ink)', flexShrink: 0 }}>А</div>
+      <div style={{ position: 'relative', flexShrink: 0 }}>
+        <button onClick={() => setMenuOpen(p => !p)} aria-label="Меню пользователя"
+          style={{ width: 34, height: 34, borderRadius: 999, background: 'var(--bg-deep)', border: 'none', cursor: 'pointer', fontWeight: 700, fontSize: 12, fontFamily: 'var(--font-display)', color: 'var(--ink)', display: 'grid', placeItems: 'center' }}>
+          {userName ? userName[0].toUpperCase() : 'А'}
+        </button>
+        {menuOpen && (
+          <>
+            <div onClick={() => setMenuOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 49 }} />
+            <div style={{ position: 'absolute', top: 'calc(100% + 8px)', right: 0, background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 10, boxShadow: 'var(--shadow-lg)', zIndex: 50, minWidth: 140, overflow: 'hidden' }}>
+              <a href="/profile" onClick={() => setMenuOpen(false)}
+                style={{ display: 'block', padding: '9px 14px', fontSize: 13, color: 'var(--ink)', textDecoration: 'none' }}>
+                Профиль
+              </a>
+              <button onClick={() => { setMenuOpen(false); onSignOut?.() }}
+                style={{ display: 'block', width: '100%', padding: '9px 14px', fontSize: 13, color: 'var(--ink-soft)', background: 'none', border: 'none', borderTop: '1px solid var(--line-soft)', cursor: 'pointer', textAlign: 'left', fontFamily: 'var(--font-body)' }}>
+                Выйти
+              </button>
+            </div>
+          </>
+        )}
+      </div>
     </header>
   )
 }
