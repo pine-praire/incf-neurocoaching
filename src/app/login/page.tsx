@@ -3,53 +3,24 @@
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 
-type Mode = 'login' | 'register' | 'magic'
-
 export default function LoginPage() {
-  const [mode, setMode] = useState<Mode>('login')
   const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [name, setName] = useState('')
   const [sent, setSent] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const supabase = createClient()
 
-  const handleEmailPassword = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setLoading(true)
-    setError(null)
-
-    if (mode === 'register') {
-      const { error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: { name },
-          emailRedirectTo: `${window.location.origin}/auth/callback`,
-        },
-      })
-      if (error) setError(error.message)
-      else setSent(true)
-    } else {
-      const { error } = await supabase.auth.signInWithPassword({ email, password })
-      if (error) setError('Неверный email или пароль')
-      else window.location.href = '/roadmap'
-    }
-    setLoading(false)
-  }
-
   const handleMagicLink = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
     setError(null)
-    const { error } = await supabase.auth.signInWithOtp({
+    await supabase.auth.signInWithOtp({
       email,
       options: { emailRedirectTo: `${window.location.origin}/auth/callback` },
     })
-    if (error) setError(error.message)
-    else setSent(true)
+    // Always show success — don't reveal whether account exists
+    setSent(true)
     setLoading(false)
   }
 
@@ -66,14 +37,6 @@ export default function LoginPage() {
       options: { redirectTo: `${window.location.origin}/roadmap` },
     })
   }
-
-  const btnStyle = (active: boolean): React.CSSProperties => ({
-    flex: 1, padding: '8px 0', fontSize: 13, fontWeight: 600,
-    fontFamily: 'var(--font-body)', cursor: 'pointer', border: 'none',
-    borderRadius: 8, transition: 'background .15s',
-    background: active ? 'var(--terra-2)' : 'transparent',
-    color: active ? '#fff' : 'var(--ink-soft)',
-  })
 
   return (
     <div style={{
@@ -111,10 +74,10 @@ export default function LoginPage() {
           }}>
             <div style={{ fontSize: 32, marginBottom: 10 }}>📬</div>
             <p style={{ fontSize: 14, color: 'var(--ink)', fontWeight: 600, margin: '0 0 6px' }}>
-              {mode === 'register' ? 'Подтверди email' : 'Письмо отправлено'}
+              Проверьте почту
             </p>
             <p style={{ fontSize: 13, color: 'var(--ink-soft)', margin: 0 }}>
-              Проверь {email} — там ссылка для входа.
+              Мы отправили ссылку для входа на {email}
             </p>
           </div>
         ) : (
@@ -158,60 +121,23 @@ export default function LoginPage() {
               <div style={{ flex: 1, height: 1, background: 'var(--line)' }} />
             </div>
 
-            {/* Mode tabs */}
-            <div style={{
-              display: 'flex', gap: 4, padding: 4,
-              background: 'var(--bg-deep)', borderRadius: 10,
-            }}>
-              <button style={btnStyle(mode === 'login')} onClick={() => { setMode('login'); setError(null) }}>Войти</button>
-              <button style={btnStyle(mode === 'register')} onClick={() => { setMode('register'); setError(null) }}>Регистрация</button>
-              <button style={btnStyle(mode === 'magic')} onClick={() => { setMode('magic'); setError(null) }}>Без пароля</button>
-            </div>
-
-            {/* Form */}
-            {mode === 'magic' ? (
-              <form onSubmit={handleMagicLink} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                <input
-                  type="email" value={email} onChange={e => setEmail(e.target.value)}
-                  placeholder="твой@email.com" required
-                  style={inputStyle}
-                />
-                {error && <p style={errorStyle}>{error}</p>}
-                <button type="submit" disabled={loading} style={submitStyle(loading)}>
-                  {loading ? 'Отправляем...' : 'Получить ссылку на почту'}
-                </button>
-              </form>
-            ) : (
-              <form onSubmit={handleEmailPassword} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                {mode === 'register' && (
-                  <input
-                    type="text" value={name} onChange={e => setName(e.target.value)}
-                    placeholder="Твоё имя" required
-                    style={inputStyle}
-                  />
-                )}
-                <input
-                  type="email" value={email} onChange={e => setEmail(e.target.value)}
-                  placeholder="твой@email.com" required
-                  style={inputStyle}
-                />
-                <input
-                  type="password" value={password} onChange={e => setPassword(e.target.value)}
-                  placeholder={mode === 'register' ? 'Придумай пароль (мин. 6 символов)' : 'Пароль'}
-                  required minLength={6}
-                  style={inputStyle}
-                />
-                {error && <p style={errorStyle}>{error}</p>}
-                <button type="submit" disabled={loading} style={submitStyle(loading)}>
-                  {loading ? '...' : mode === 'register' ? 'Создать аккаунт' : 'Войти'}
-                </button>
-              </form>
-            )}
+            {/* Magic link form */}
+            <form onSubmit={handleMagicLink} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <input
+                type="email" value={email} onChange={e => setEmail(e.target.value)}
+                placeholder="твой@email.com" required
+                style={inputStyle}
+              />
+              {error && <p style={errorStyle}>{error}</p>}
+              <button type="submit" disabled={loading} style={submitStyle(loading)}>
+                {loading ? 'Отправляем...' : 'Получить ссылку для входа'}
+              </button>
+            </form>
           </>
         )}
 
         <p style={{ fontSize: 11.5, color: 'var(--ink-mute)', textAlign: 'center', margin: 0 }}>
-          Входя, ты принимаешь условия использования INCF
+          Доступ к платформе предоставляется после покупки курса.
         </p>
       </div>
     </div>
