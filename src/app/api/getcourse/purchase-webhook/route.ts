@@ -12,7 +12,10 @@ function normalizeEmail(email: string) {
 function isPaidStatus(status?: string) {
   if (!status) return false
   const normalized = status.trim().toLowerCase()
-  return ["paid", "success", "оплачен", "оплачено", "completed"].includes(normalized)
+  return [
+    "paid", "success", "completed",
+    "оплачен", "оплачено", "завершен", "завершено", "завершён"
+  ].includes(normalized)
 }
 
 export async function POST(request: Request) {
