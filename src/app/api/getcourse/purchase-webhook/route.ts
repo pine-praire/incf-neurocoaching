@@ -161,7 +161,12 @@ export async function POST(request: Request) {
       }).eq("id", eventLog.id)
     }
 
-    return NextResponse.json({ ok: true, user_id: userId, course_id: courseId })
+    return NextResponse.json({
+      ok: true,
+      user_id: userId,
+      course_id: courseId,
+      magic_link: linkData.properties.action_link ?? null,
+    })
 
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error"
