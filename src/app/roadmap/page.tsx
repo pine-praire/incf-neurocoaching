@@ -171,6 +171,7 @@ function AnnotationCard({ annotation, stamp, mapWidth, isCompact }: { annotation
   }, [popoverOpen])
 
   if (isCompact) {
+    if (mapWidth < 480) return null
     const rawIconLeft = annotation.preferredSide === 'right' ? markerX + 56 : markerX - 56 - 40
     const iconLeft = Math.max(SAFE, Math.min(rawIconLeft, mapWidth - 40 - SAFE))
     return (
@@ -329,9 +330,10 @@ function PathRoad({ completed }: { completed: Set<string> }) {
   )
 }
 
-function RoadmapStamp({ stamp, completed, nextId, isLocked, onOpen, onFinalTest }: {
+function RoadmapStamp({ stamp, completed, nextId, isLocked, onOpen, onFinalTest, mapWidth }: {
   stamp: Stamp; completed: Set<string>; nextId: string | null
   isLocked: (id: string) => boolean; onOpen: (lesson: OpenLesson) => void; onFinalTest?: () => void
+  mapWidth: number
 }) {
   const [hovered, setHovered] = useState(false)
   const { id, x, y, kind } = stamp
@@ -353,7 +355,10 @@ function RoadmapStamp({ stamp, completed, nextId, isLocked, onOpen, onFinalTest 
 
   const status = getStatus()
   const isReward = kind === 'badge' || kind === 'cert'
-  const size = isReward ? 96 : (kind === 'intro' || kind === 'final') ? 84 : 76
+  const sc = mapWidth > 0 ? Math.min(1, mapWidth / 720) : 1
+  const size = Math.max(40, Math.round((isReward ? 96 : (kind === 'intro' || kind === 'final') ? 84 : 76) * sc))
+  const fs = (base: number) => Math.max(11, Math.round(base * sc))
+  const showLabel = sc > 0.55
 
   const palette = (() => {
     if (status === 'done' && !isReward) return { fill: 'var(--terra-2)', ink: '#fff', ring: 'oklch(0.45 0.16 30)' }
@@ -398,23 +403,25 @@ function RoadmapStamp({ stamp, completed, nextId, isLocked, onOpen, onFinalTest 
       }}
     >
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
-        {status === 'done' && !isReward && <span style={{ fontSize: 28 }}>✓</span>}
-        {status === 'locked' && <span style={{ fontSize: 20 }}>🔒</span>}
+        {status === 'done' && !isReward && <span style={{ fontSize: fs(28) }}>✓</span>}
+        {status === 'locked' && <span style={{ fontSize: fs(20) }}>🔒</span>}
         {status !== 'done' && status !== 'locked' && kind === 'lesson' && lesson && (
-          <><span style={{ fontSize: 9.5, fontWeight: 700, opacity: 0.55, letterSpacing: '.1em' }}>УРОК</span>
-          <span style={{ fontFamily: 'var(--font-display)', fontSize: 22, fontWeight: 700, lineHeight: 1 }}>{lesson.n}</span></>
+          <>{sc > 0.6 && <span style={{ fontSize: fs(9.5), fontWeight: 700, opacity: 0.55, letterSpacing: '.1em' }}>УРОК</span>}
+          <span style={{ fontFamily: 'var(--font-display)', fontSize: fs(22), fontWeight: 700, lineHeight: 1 }}>{lesson.n}</span></>
         )}
-        {status !== 'done' && status !== 'locked' && kind === 'intro' && <span style={{ fontSize: 26 }}>🚀</span>}
-        {status !== 'done' && status !== 'locked' && kind === 'badge' && <span style={{ fontSize: 30 }}>🏆</span>}
-        {status === 'done' && isReward && <span style={{ fontSize: 34 }}>🏆</span>}
-        {status !== 'done' && status !== 'locked' && kind === 'final' && <span style={{ fontSize: 26 }}>{id === 'test' ? '📝' : '💬'}</span>}
-        {kind === 'cert' && status !== 'locked' && <span style={{ fontSize: status === 'done' ? 34 : 26 }}>🎓</span>}
+        {status !== 'done' && status !== 'locked' && kind === 'intro' && <span style={{ fontSize: fs(26) }}>🚀</span>}
+        {status !== 'done' && status !== 'locked' && kind === 'badge' && <span style={{ fontSize: fs(30) }}>🏆</span>}
+        {status === 'done' && isReward && <span style={{ fontSize: fs(34) }}>🏆</span>}
+        {status !== 'done' && status !== 'locked' && kind === 'final' && <span style={{ fontSize: fs(26) }}>{id === 'test' ? '📝' : '💬'}</span>}
+        {kind === 'cert' && status !== 'locked' && <span style={{ fontSize: fs(status === 'done' ? 34 : 26) }}>🎓</span>}
       </div>
-      <span style={{ position: 'absolute', top: '100%', left: '50%', transform: 'translate(-50%, 5px)', whiteSpace: 'nowrap', fontFamily: 'var(--font-display)', fontSize: 11, fontWeight: 600, color: 'var(--ink)', background: 'rgba(255,255,255,.88)', backdropFilter: 'blur(2px)', padding: '2px 9px', borderRadius: 999, border: '1px solid var(--line)', zIndex: 4 }}>
-        {label}
-      </span>
+      {showLabel && (
+        <span style={{ position: 'absolute', top: '100%', left: '50%', transform: 'translate(-50%, 5px)', whiteSpace: 'nowrap', fontFamily: 'var(--font-display)', fontSize: Math.max(9, Math.round(11 * sc)), fontWeight: 600, color: 'var(--ink)', background: 'rgba(255,255,255,.88)', backdropFilter: 'blur(2px)', padding: '2px 9px', borderRadius: 999, border: '1px solid var(--line)', zIndex: 4 }}>
+          {label}
+        </span>
+      )}
       {status === 'next' && (kind === 'lesson' || kind === 'final') && (
-        <span style={{ position: 'absolute', bottom: '100%', left: '50%', transform: 'translate(-50%, -5px)', whiteSpace: 'nowrap', fontFamily: 'var(--font-display)', fontSize: 10.5, fontWeight: 700, color: 'var(--navy-2)', background: 'var(--gold)', padding: '2px 9px', borderRadius: 999, zIndex: 4 }}>
+        <span style={{ position: 'absolute', bottom: '100%', left: '50%', transform: 'translate(-50%, -5px)', whiteSpace: 'nowrap', fontFamily: 'var(--font-display)', fontSize: Math.max(9, Math.round(10.5 * sc)), fontWeight: 700, color: 'var(--navy-2)', background: 'var(--gold)', padding: '2px 9px', borderRadius: 999, zIndex: 4 }}>
           сейчас · +{lesson?.xp ?? final?.xp} XP
         </span>
       )}
@@ -541,7 +548,7 @@ userName={userName}
               <div ref={mapRef} style={{ position: 'relative', width: '100%', aspectRatio: `${W} / ${H}` }}>
                 <PathRoad completed={completed} />
                 {STAMPS.map(stamp => (
-                  <RoadmapStamp key={stamp.id} stamp={stamp} completed={completed} nextId={nextLesson?.id ?? null} isLocked={isLocked} onOpen={setOpenLesson} onFinalTest={() => setShowFinalTest(true)} />
+                  <RoadmapStamp key={stamp.id} stamp={stamp} completed={completed} nextId={nextLesson?.id ?? null} isLocked={isLocked} onOpen={setOpenLesson} onFinalTest={() => setShowFinalTest(true)} mapWidth={mapWidth} />
                 ))}
                 {mapWidth > 0 && ANNOTATIONS.map(annotation => {
                   const stamp = STAMPS.find(s => s.id === annotation.stampId)

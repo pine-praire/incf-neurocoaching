@@ -25,11 +25,11 @@ export function TopBar({ xp, streak, completed, userName, onSignOut }: {
   const overall = total > 0 ? done / total : 0
   return (
     <header style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '13px 24px', background: 'var(--surface)', borderBottom: '1px solid var(--line)', flexShrink: 0, position: 'sticky', top: 0, zIndex: 40, backdropFilter: 'blur(8px)' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 9, minWidth: 0 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 9, minWidth: 0, overflow: 'hidden' }}>
         <div style={{ width: 32, height: 32, borderRadius: 8, background: 'var(--terra-2)', color: '#fff', display: 'grid', placeItems: 'center', fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 14, flexShrink: 0 }}>i</div>
-        <div>
-          <div style={{ fontSize: 9.5, fontWeight: 600, letterSpacing: '.16em', textTransform: 'uppercase', opacity: 0.55, color: 'var(--ink)' }}>INCF · Курс</div>
-          <div style={{ fontFamily: 'var(--font-display)', fontSize: 14, fontWeight: 600, lineHeight: 1.15, color: 'var(--ink)' }}>Введение в нейрокоучинг</div>
+        <div style={{ minWidth: 0, overflow: 'hidden' }}>
+          <div style={{ fontSize: 9.5, fontWeight: 600, letterSpacing: '.16em', textTransform: 'uppercase', opacity: 0.55, color: 'var(--ink)', whiteSpace: 'nowrap' }}>INCF · Курс</div>
+          <div style={{ fontFamily: 'var(--font-display)', fontSize: 14, fontWeight: 600, lineHeight: 1.15, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Введение в нейрокоучинг</div>
         </div>
       </div>
       <div style={{ flex: 1, minWidth: 80, maxWidth: 300, marginLeft: 8 }}>
