@@ -9,10 +9,13 @@ export async function POST(request: Request) {
   const supabase = createSupabaseAdminClient()
 
   const secretFromHeader = request.headers.get("x-getcourse-secret")
-  const secretFromQuery = new URL(request.url).searchParams.get("secret")
   const expectedSecret = process.env.GETCOURSE_WEBHOOK_SECRET
 
-  if (secretFromHeader !== expectedSecret && secretFromQuery !== expectedSecret) {
+  if (!expectedSecret) {
+    return NextResponse.json({ error: "Server is not configured" }, { status: 500 })
+  }
+
+  if (secretFromHeader !== expectedSecret) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 

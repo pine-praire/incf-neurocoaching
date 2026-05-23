@@ -3,6 +3,12 @@
 import { createClient } from '@/lib/supabase/server'
 import { LESSONS, FINALS, INTRO } from '@/lib/course-data'
 
+const VALID_STEP_IDS = new Set([
+  'intro',
+  ...LESSONS.map(l => l.id),
+  ...FINALS.map(f => f.id),
+])
+
 function getXP(stepId: string): number {
   if (stepId === 'intro') return INTRO.xp
   const lesson = LESSONS.find(l => l.id === stepId)
@@ -20,6 +26,7 @@ function getStepType(stepId: string): 'intro' | 'lesson' | 'final' {
 
 // Mark a lesson/final as done
 export async function markStepDone(stepId: string) {
+  if (!VALID_STEP_IDS.has(stepId)) return { error: 'Invalid step' }
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Not authenticated' }
@@ -38,6 +45,7 @@ export async function markStepDone(stepId: string) {
 
 // Undo a step
 export async function undoStep(stepId: string) {
+  if (!VALID_STEP_IDS.has(stepId)) return { error: 'Invalid step' }
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Not authenticated' }
@@ -54,6 +62,8 @@ export async function undoStep(stepId: string) {
 
 // Save answer to a lesson task
 export async function saveAnswer(lessonId: string, text: string) {
+  if (!VALID_STEP_IDS.has(lessonId)) return { error: 'Invalid step' }
+  if (text.length > 2000) return { error: 'Too long' }
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Not authenticated' }
@@ -95,7 +105,6 @@ export async function loadProgress() {
     supabase.from('answers').select('lesson_id, text').eq('user_id', user.id),
   ])
 
-  console.log('user_metadata:', user.user_metadata)
   const userName = user.user_metadata?.name
     || user.user_metadata?.full_name
     || user.user_metadata?.display_name

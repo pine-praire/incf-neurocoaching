@@ -22,14 +22,13 @@ export async function POST(request: Request) {
   const supabase = createSupabaseAdminClient()
 
   const secretFromHeader = request.headers.get("x-getcourse-secret")
-  const secretFromQuery = new URL(request.url).searchParams.get("secret")
   const expectedSecret = process.env.GETCOURSE_WEBHOOK_SECRET
 
   if (!expectedSecret) {
     return NextResponse.json({ error: "Server is not configured" }, { status: 500 })
   }
 
-  if (secretFromHeader !== expectedSecret && secretFromQuery !== expectedSecret) {
+  if (secretFromHeader !== expectedSecret) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
@@ -152,8 +151,6 @@ export async function POST(request: Request) {
     if (linkError) throw linkError
 
     // TODO: отправить linkData.properties.action_link через Resend
-    // Пока логируем
-    console.log("Magic link generated for", email, linkData.properties.action_link)
 
     if (eventLog?.id) {
       await supabase.from("webhook_events").update({
