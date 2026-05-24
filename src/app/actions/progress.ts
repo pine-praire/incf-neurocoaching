@@ -94,14 +94,29 @@ export async function saveCertificateName(name: string) {
   return { ok: true }
 }
 
+function computeStreak(createdAts: string[]): number {
+  if (createdAts.length === 0) return 0
+  const days = [...new Set(createdAts.map(d => d.slice(0, 10)))].sort().reverse()
+  const today = new Date().toISOString().slice(0, 10)
+  const yesterday = new Date(Date.now() - 86_400_000).toISOString().slice(0, 10)
+  if (days[0] !== today && days[0] !== yesterday) return 0
+  let streak = 1
+  for (let i = 1; i < days.length; i++) {
+    const diff = (new Date(days[i - 1]).getTime() - new Date(days[i]).getTime()) / 86_400_000
+    if (diff === 1) streak++
+    else break
+  }
+  return streak
+}
+
 // Load all progress for current user
 export async function loadProgress() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return { completed: [], answers: {}, userName: '' }
+  if (!user) return { completed: [], answers: {}, userName: '', streak: 0 }
 
   const [{ data: progress }, { data: answers }] = await Promise.all([
-    supabase.from('progress').select('step_id').eq('user_id', user.id),
+    supabase.from('progress').select('step_id, created_at').eq('user_id', user.id),
     supabase.from('answers').select('lesson_id, text').eq('user_id', user.id),
   ])
 
@@ -111,9 +126,12 @@ export async function loadProgress() {
     || user.email?.split('@')[0]
     || ''
 
+  const streak = computeStreak((progress ?? []).map(p => p.created_at ?? ''))
+
   return {
     completed: (progress ?? []).map(p => p.step_id),
     answers: Object.fromEntries((answers ?? []).map(a => [a.lesson_id, a.text ?? ''])),
     userName,
+    streak,
   }
 }

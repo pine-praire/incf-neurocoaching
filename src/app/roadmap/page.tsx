@@ -439,9 +439,9 @@ export default function RoadmapPage() {
   const [mapWidth, setMapWidth] = useState(0)
   const [loading, setLoading] = useState(true)
   const [userName, setUserName] = useState('')
+  const [streak, setStreak] = useState(0)
   const mapRef = useRef<HTMLDivElement>(null)
 
-  const streak = 3
   const xp = computeXP(completed)
 
   const handleSignOut = useCallback(async () => {
@@ -463,10 +463,11 @@ export default function RoadmapPage() {
     }
 
     loadProgress()
-      .then(({ completed: c, answers: a, userName: n }) => {
+      .then(({ completed: c, answers: a, userName: n, streak: s }) => {
         setCompleted(new Set(c))
         setAnswers(a)
         setUserName(n)
+        setStreak(s)
       })
       .catch(() => {})
       .finally(() => setLoading(false))
