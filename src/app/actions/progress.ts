@@ -79,6 +79,7 @@ export async function saveAnswer(lessonId: string, text: string) {
 
 // Save certificate name
 export async function saveCertificateName(name: string) {
+  if (name.length > 200) return { error: 'Имя слишком длинное (максимум 200 символов)' }
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Not authenticated' }
