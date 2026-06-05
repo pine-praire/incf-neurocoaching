@@ -96,7 +96,7 @@ export async function saveCertificateName(name: string) {
 
 function computeStreak(createdAts: string[]): number {
   if (createdAts.length === 0) return 0
-  const days = [...new Set(createdAts.map(d => d.slice(0, 10)))].sort().reverse()
+  const days = Array.from(new Set(createdAts.map(d => d.slice(0, 10)))).sort().reverse()
   const today = new Date().toISOString().slice(0, 10)
   const yesterday = new Date(Date.now() - 86_400_000).toISOString().slice(0, 10)
   if (days[0] !== today && days[0] !== yesterday) return 0

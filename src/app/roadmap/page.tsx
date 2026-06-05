@@ -11,6 +11,9 @@ import { createClient } from '@/lib/supabase/client'
 import { HeroBlock } from './hero-block'
 import { TopBar, BonusGrid } from './roadmap-ui'
 import { FinalTestModal } from './final-test-modal'
+import { QUEST_LESSON_IDS } from '@/lib/quest-meta'
+
+const questLessonIds = new Set<string>(QUEST_LESSON_IDS)
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -200,12 +203,19 @@ function AnnotationCard({ annotation, stamp, mapWidth, isCompact }: { annotation
   )
 }
 
-function LessonModal({ lesson, completed, answers, onClose, onMarkDone, onUndo, onSetAnswer }: {
+function LessonModal({ lesson, completed, answers, onClose, onMarkDone, onUndo, onSetAnswer, hasQuest }: {
   lesson: OpenLesson; completed: Set<string>; answers: Record<string, string>
   onClose: () => void; onMarkDone: (id: string) => void; onUndo: (id: string) => void; onSetAnswer: (id: string, v: string) => void
+  hasQuest: boolean
 }) {
   const done = completed.has(lesson.id)
   const answer = answers[lesson.id] ?? ''
+
+  useEffect(() => {
+    if (!done && !hasQuest) {
+      onMarkDone(lesson.id)
+    }
+  }, [lesson.id, done, hasQuest, onMarkDone])
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
@@ -564,8 +574,9 @@ userName={userName}
       </div>
 
       {openLesson && (
-        <LessonModal lesson={openLesson} completed={completed} answers={answers}
-          onClose={() => setOpenLesson(null)} onMarkDone={markDone} onUndo={undo} onSetAnswer={setAnswer} />
+        <LessonModal key={openLesson.id} lesson={openLesson} completed={completed} answers={answers}
+          onClose={() => setOpenLesson(null)} onMarkDone={markDone} onUndo={undo} onSetAnswer={setAnswer}
+          hasQuest={questLessonIds.has(openLesson.id)} />
       )}
 
       {showFinalTest && (
