@@ -46,19 +46,28 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true })
   }
 
-  const { data: linkData, error: linkError } = await supabase.auth.admin.generateLink({
-    type: "magiclink",
-    email,
-    options: {
-      redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/auth/callback`,
-    },
-  })
+  let linkData: Awaited<ReturnType<typeof supabase.auth.admin.generateLink>>['data']
 
-  if (linkError) {
-    return NextResponse.json({ error: linkError.message }, { status: 400 })
+  try {
+    const { data, error: linkError } = await supabase.auth.admin.generateLink({
+      type: "magiclink",
+      email,
+      options: {
+        redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/auth/callback`,
+      },
+    })
+    if (linkError) throw linkError
+    linkData = data
+  } catch (err) {
+    const msg = err instanceof Error ? err.message
+      : (typeof err === 'object' && err !== null && 'message' in err)
+        ? String((err as { message: unknown }).message)
+        : String(err)
+    console.error('generateLink failed:', msg)
+    return NextResponse.json({ error: msg }, { status: 500 })
   }
 
-  const magicLink = linkData.properties.action_link ?? ''
+  const magicLink = linkData?.properties?.action_link ?? ''
 
   if (magicLink) {
     try {

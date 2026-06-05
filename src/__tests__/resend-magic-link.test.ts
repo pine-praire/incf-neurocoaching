@@ -196,7 +196,7 @@ describe('email send failure resilience', () => {
 // ── generateLink error ────────────────────────────────────────────────────────
 
 describe('generateLink failure', () => {
-  it('returns 400 when Supabase generateLink returns an error', async () => {
+  it('returns 500 when Supabase generateLink returns an error', async () => {
     vi.mocked(createSupabaseAdminClient).mockReturnValue(
       makeMockClient({
         generateLinkResult: { data: null, error: { message: 'User not found' } },
@@ -204,7 +204,7 @@ describe('generateLink failure', () => {
     )
 
     const res = await POST(makeRequest({ email: 'student@example.com' }))
-    expect(res.status).toBe(400)
+    expect(res.status).toBe(500)
     const body = await res.json()
     expect(body.error).toBe('User not found')
   })

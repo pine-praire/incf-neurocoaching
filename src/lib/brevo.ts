@@ -8,7 +8,7 @@ export async function sendMagicLinkEmail(
   if (!apiKey) throw new Error('Missing BREVO_API_KEY')
 
   const body = {
-    sender: { name: 'INCF Нейрокоучинг', email: 'alex.boldin.v@gmail.com' },
+    sender: { name: 'INCF Нейрокоучинг', email: 'noreply@incf.eu' },
     to: [{ email }],
     subject: 'Ваша ссылка для входа на платформу INCF',
     textContent: `Здравствуйте!\n\nВот ваша ссылка для входа на платформу INCF Нейрокоучинг:\n\n${magicLink}\n\nСсылка одноразовая и действует 1 час.\n\nЕсли вы не запрашивали эту ссылку — просто проигнорируйте письмо.`,
