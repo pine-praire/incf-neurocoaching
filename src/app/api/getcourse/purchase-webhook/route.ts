@@ -1,3 +1,4 @@
+import { timingSafeEqual } from "crypto"
 import { NextResponse } from "next/server"
 import { createSupabaseAdminClient } from "@/lib/supabase/admin"
 import type { GetCoursePurchasePayload } from "@/lib/getcourse/types"
@@ -29,7 +30,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Server is not configured" }, { status: 500 })
   }
 
-  if (secretFromHeader !== expectedSecret) {
+  const a = Buffer.from(secretFromHeader ?? '', 'utf8')
+  const b = Buffer.from(expectedSecret, 'utf8')
+  if (a.length !== b.length || !timingSafeEqual(a, b)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
@@ -81,6 +84,19 @@ export async function POST(request: Request) {
     const email = normalizeEmail(payload.email)
     const courseId = getCourseIdByOfferId(payload.offer_id)
     if (!courseId) throw new Error(`Unknown offer_id: ${payload.offer_id}`)
+
+    // Idempotency: skip if this order_id was already processed successfully
+    const { data: existingEvent } = await supabase
+      .from('webhook_events')
+      .select('id')
+      .eq('event_key', `purchase:${payload.order_id}`)
+      .is('error', null)
+      .not('processed_at', 'is', null)
+      .maybeSingle()
+
+    if (existingEvent) {
+      return NextResponse.json({ ok: true })
+    }
 
     // Найти пользователя через profiles, не через listUsers()
     const { data: existingProfile } = await supabase

@@ -237,9 +237,9 @@ function LessonModal({ lesson, completed, answers, onClose, onMarkDone, onUndo, 
           <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 24, fontWeight: 600, letterSpacing: '-0.01em', color: 'var(--ink)', margin: 0 }}>{lesson.title}</h2>
           {lesson.subtitle && <p style={{ color: 'var(--ink-soft)', fontSize: 13.5, margin: '-6px 0 0' }}>{lesson.subtitle}</p>}
           <div style={{ position: 'relative', width: '100%', paddingBottom: '56.25%', borderRadius: 12, overflow: 'hidden' }}>
-            {'youtubeId' in lesson && (lesson as any).youtubeId ? (
+            {'youtubeId' in lesson && lesson.youtubeId ? (
               <iframe
-                src={`https://www.youtube.com/embed/${(lesson as any).youtubeId}`}
+                src={`https://www.youtube.com/embed/${lesson.youtubeId}`}
                 title={lesson.title}
                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                 allowFullScreen

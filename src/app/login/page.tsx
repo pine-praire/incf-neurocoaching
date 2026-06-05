@@ -17,7 +17,10 @@ export default function LoginPage() {
     setError(null)
     await supabase.auth.signInWithOtp({
       email,
-      options: { emailRedirectTo: `${window.location.origin}/auth/callback` },
+      options: {
+        emailRedirectTo: `${window.location.origin}/auth/callback`,
+        shouldCreateUser: false,
+      },
     })
     // Always show success — don't reveal whether account exists
     setSent(true)

@@ -36,7 +36,18 @@ function buildHappyFromMock({ profileExists = false } = {}) {
     }),
   })
 
-  // 2. profiles lookup
+  // 2. webhook_events idempotency check (select → eq → is → not → maybeSingle)
+  const idem: Record<string, ReturnType<typeof vi.fn>> = {
+    select: vi.fn(), eq: vi.fn(), is: vi.fn(), not: vi.fn(),
+    maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }), // not a duplicate
+  }
+  idem.select = vi.fn().mockReturnValue(idem)
+  idem.eq    = vi.fn().mockReturnValue(idem)
+  idem.is    = vi.fn().mockReturnValue(idem)
+  idem.not   = vi.fn().mockReturnValue(idem)
+  m.mockReturnValueOnce(idem)
+
+  // 3. profiles lookup
   m.mockReturnValueOnce({
     select: vi.fn().mockReturnValue({
       eq: vi.fn().mockReturnValue({
@@ -49,16 +60,16 @@ function buildHappyFromMock({ profileExists = false } = {}) {
     }),
   })
 
-  // 3. profiles upsert
+  // 4. profiles upsert
   m.mockReturnValueOnce({ upsert: vi.fn().mockResolvedValue({ data: null, error: null }) })
 
-  // 4. getcourse_orders upsert
+  // 5. getcourse_orders upsert
   m.mockReturnValueOnce({ upsert: vi.fn().mockResolvedValue({ data: null, error: null }) })
 
-  // 5. enrollments upsert
+  // 6. enrollments upsert
   m.mockReturnValueOnce({ upsert: vi.fn().mockResolvedValue({ data: null, error: null }) })
 
-  // 6. webhook_events update (processed_at)
+  // 7. webhook_events update (processed_at)
   m.mockReturnValueOnce({
     update: vi.fn().mockReturnValue({
       eq: vi.fn().mockResolvedValue({ data: null, error: null }),

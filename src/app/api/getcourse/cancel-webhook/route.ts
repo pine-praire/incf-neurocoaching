@@ -1,6 +1,6 @@
+import { timingSafeEqual } from "crypto"
 import { NextResponse } from "next/server"
 import { createSupabaseAdminClient } from "@/lib/supabase/admin"
-import type { GetCoursePurchasePayload } from "@/lib/getcourse/types"
 import { getCourseIdByOfferId } from "@/lib/getcourse/access-map"
 
 export const runtime = "nodejs"
@@ -15,15 +15,32 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Server is not configured" }, { status: 500 })
   }
 
-  if (secretFromHeader !== expectedSecret) {
+  const a = Buffer.from(secretFromHeader ?? '', 'utf8')
+  const b = Buffer.from(expectedSecret, 'utf8')
+  if (a.length !== b.length || !timingSafeEqual(a, b)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
-  let payload: GetCoursePurchasePayload
+  const contentType = request.headers.get('content-type') ?? ''
+  let payload: Record<string, string | undefined>
+
   try {
-    payload = await request.json()
+    if (contentType.includes('application/json')) {
+      payload = await request.json()
+    } else {
+      const text = await request.text()
+      const params = new URLSearchParams(text)
+      payload = {
+        event_type:        params.get('event_type')        ?? undefined,
+        getcourse_user_id: params.get('getcourse_user_id') ?? undefined,
+        email:             params.get('email')             ?? undefined,
+        order_id:          params.get('order_id')          ?? undefined,
+        offer_id:          params.get('offer_id')          ?? undefined,
+        payment_status:    params.get('payment_status')    ?? undefined,
+      }
+    }
   } catch {
-    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 })
+    return NextResponse.json({ error: "Invalid request body" }, { status: 400 })
   }
 
   const { data: eventLog } = await supabase
