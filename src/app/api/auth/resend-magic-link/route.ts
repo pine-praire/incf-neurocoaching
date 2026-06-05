@@ -20,6 +20,10 @@ export async function POST(request: Request) {
 
   const email = body.email.trim().toLowerCase()
 
+  if (email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return NextResponse.json({ ok: true })
+  }
+
   const { data: profile } = await supabase
     .from("profiles")
     .select("id")

@@ -49,7 +49,7 @@ describe('sendMagicLinkEmail', () => {
     expect(body.to).toEqual([{ email: 'student@incf.eu' }])
     expect(body.subject).toContain('INCF')
     expect(body.textContent).toContain('https://magic.link/tok')
-    expect(body.textContent).toContain('24 часа')
+    expect(body.textContent).toContain('1 час')
     expect(body.sender.email).toBe('noreply@incf.eu')
   })
 

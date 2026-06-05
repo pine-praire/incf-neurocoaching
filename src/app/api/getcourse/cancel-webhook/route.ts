@@ -5,6 +5,8 @@ import { getCourseIdByOfferId } from "@/lib/getcourse/access-map"
 
 export const runtime = "nodejs"
 
+class WebhookValidationError extends Error {}
+
 export async function POST(request: Request) {
   const supabase = createSupabaseAdminClient()
 
@@ -55,11 +57,24 @@ export async function POST(request: Request) {
     .single()
 
   try {
-    if (!payload.order_id) throw new Error("Missing order_id")
-    if (!payload.offer_id) throw new Error("Missing offer_id")
+    if (!payload.order_id) throw new WebhookValidationError("Missing order_id")
+    if (!payload.offer_id) throw new WebhookValidationError("Missing offer_id")
 
     const courseId = getCourseIdByOfferId(payload.offer_id)
-    if (!courseId) throw new Error(`Unknown offer_id: ${payload.offer_id}`)
+    if (!courseId) throw new WebhookValidationError(`Unknown offer_id: ${payload.offer_id}`)
+
+    // Idempotency: skip if this order was already cancelled successfully
+    const { data: existingEvent } = await supabase
+      .from('webhook_events')
+      .select('id')
+      .eq('event_key', `cancel:${payload.order_id}`)
+      .is('error', null)
+      .not('processed_at', 'is', null)
+      .maybeSingle()
+
+    if (existingEvent) {
+      return NextResponse.json({ ok: true })
+    }
 
     await supabase.from("getcourse_orders").update({
       status: "cancelled",
@@ -79,7 +94,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true })
 
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Unknown error"
+    const isValidation = error instanceof WebhookValidationError
+    const message = isValidation && error instanceof Error ? error.message : "Webhook processing failed"
+    if (!isValidation) console.error('Unexpected cancel webhook error:', error)
     if (eventLog?.id) {
       await supabase.from("webhook_events").update({ error: message }).eq("id", eventLog.id)
     }

@@ -7,6 +7,8 @@ import { sendMagicLinkEmail } from "@/lib/brevo"
 
 export const runtime = "nodejs"
 
+class WebhookValidationError extends Error {}
+
 function normalizeEmail(email: string) {
   return email.trim().toLowerCase()
 }
@@ -76,14 +78,14 @@ export async function POST(request: Request) {
     .single()
 
   try {
-    if (!payload.email) throw new Error("Missing email")
-    if (!payload.order_id) throw new Error("Missing order_id")
-    if (!payload.offer_id) throw new Error("Missing offer_id")
-    if (!isPaidStatus(payload.payment_status)) throw new Error(`Payment status is not paid: ${payload.payment_status}`)
+    if (!payload.email) throw new WebhookValidationError("Missing email")
+    if (!payload.order_id) throw new WebhookValidationError("Missing order_id")
+    if (!payload.offer_id) throw new WebhookValidationError("Missing offer_id")
+    if (!isPaidStatus(payload.payment_status)) throw new WebhookValidationError(`Payment status is not paid: ${payload.payment_status}`)
 
     const email = normalizeEmail(payload.email)
     const courseId = getCourseIdByOfferId(payload.offer_id)
-    if (!courseId) throw new Error(`Unknown offer_id: ${payload.offer_id}`)
+    if (!courseId) throw new WebhookValidationError(`Unknown offer_id: ${payload.offer_id}`)
 
     // Idempotency: skip if this order_id was already processed successfully
     const { data: existingEvent } = await supabase
@@ -170,7 +172,7 @@ export async function POST(request: Request) {
     const magicLink = linkData.properties.action_link ?? ''
 
     if (!magicLink) {
-      console.error('Empty magic link for', email)
+      console.error('Empty magic link generated')
       return NextResponse.json({ ok: true })
     }
 
@@ -190,7 +192,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true })
 
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Unknown error"
+    const isValidation = error instanceof WebhookValidationError
+    const message = isValidation && error instanceof Error ? error.message : "Webhook processing failed"
+    if (!isValidation) console.error('Unexpected purchase webhook error:', error)
     if (eventLog?.id) {
       await supabase.from("webhook_events").update({ error: message }).eq("id", eventLog.id)
     }

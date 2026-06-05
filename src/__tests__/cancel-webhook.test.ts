@@ -31,14 +31,25 @@ function buildHappyFromMock() {
     }),
   })
 
-  // 2. getcourse_orders update → eq
+  // 2. webhook_events idempotency check → not found
+  const idem: Record<string, ReturnType<typeof vi.fn>> = {
+    select: vi.fn(), eq: vi.fn(), is: vi.fn(), not: vi.fn(),
+    maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+  }
+  idem.select = vi.fn().mockReturnValue(idem)
+  idem.eq    = vi.fn().mockReturnValue(idem)
+  idem.is    = vi.fn().mockReturnValue(idem)
+  idem.not   = vi.fn().mockReturnValue(idem)
+  m.mockReturnValueOnce(idem)
+
+  // 3. getcourse_orders update → eq
   m.mockReturnValueOnce({
     update: vi.fn().mockReturnValue({
       eq: vi.fn().mockResolvedValue({ data: null, error: null }),
     }),
   })
 
-  // 3. enrollments update → eq → eq
+  // 4. enrollments update → eq → eq
   m.mockReturnValueOnce({
     update: vi.fn().mockReturnValue({
       eq: vi.fn().mockReturnValue({
@@ -47,12 +58,38 @@ function buildHappyFromMock() {
     }),
   })
 
-  // 4. webhook_events update (processed_at)
+  // 5. webhook_events update (processed_at)
   m.mockReturnValueOnce({
     update: vi.fn().mockReturnValue({
       eq: vi.fn().mockResolvedValue({ data: null, error: null }),
     }),
   })
+
+  return m
+}
+
+function buildDuplicateFromMock() {
+  const m = vi.fn()
+
+  // 1. webhook_events insert
+  m.mockReturnValueOnce({
+    insert: vi.fn().mockReturnValue({
+      select: vi.fn().mockReturnValue({
+        single: vi.fn().mockResolvedValue({ data: { id: 'ev-c-dup' }, error: null }),
+      }),
+    }),
+  })
+
+  // 2. webhook_events idempotency check → existing event found
+  const idem: Record<string, ReturnType<typeof vi.fn>> = {
+    select: vi.fn(), eq: vi.fn(), is: vi.fn(), not: vi.fn(),
+    maybeSingle: vi.fn().mockResolvedValue({ data: { id: 'ev-prev' }, error: null }),
+  }
+  idem.select = vi.fn().mockReturnValue(idem)
+  idem.eq    = vi.fn().mockReturnValue(idem)
+  idem.is    = vi.fn().mockReturnValue(idem)
+  idem.not   = vi.fn().mockReturnValue(idem)
+  m.mockReturnValueOnce(idem)
 
   return m
 }
@@ -274,6 +311,35 @@ describe('payload validation', () => {
   })
 })
 
+// ── S-6: idempotency ──────────────────────────────────────────────────────────
+
+describe('S-6 — idempotency (cancel-webhook)', () => {
+  it('returns { ok: true } immediately for duplicate cancel — 30 runs', async () => {
+    for (let run = 0; run < 30; run++) {
+      vi.mocked(createSupabaseAdminClient).mockReturnValue(
+        { from: buildDuplicateFromMock(), auth: { admin: {} } } as unknown as ReturnType<typeof createSupabaseAdminClient>
+      )
+      const res = await POST(makeRequest(jsonBody({ order_id: `ord-dup-${run}` }), 'application/json'))
+      expect(res.status, `run ${run}`).toBe(200)
+      expect(await res.json(), `run ${run}`).toEqual({ ok: true })
+      vi.clearAllMocks()
+    }
+  })
+
+  it('does not update orders or enrollments for duplicate cancel — 30 runs', async () => {
+    for (let run = 0; run < 30; run++) {
+      const fromMock = buildDuplicateFromMock()
+      vi.mocked(createSupabaseAdminClient).mockReturnValue(
+        { from: fromMock, auth: { admin: {} } } as unknown as ReturnType<typeof createSupabaseAdminClient>
+      )
+      await POST(makeRequest(jsonBody({ order_id: `ord-dup-nowrite-${run}` }), 'application/json'))
+      // Only 2 from() calls: insert + idempotency check. No update calls.
+      expect(fromMock.mock.calls.length, `run ${run}`).toBe(2)
+      vi.clearAllMocks()
+    }
+  })
+})
+
 // ── Cancellation logic ────────────────────────────────────────────────────────
 
 describe('cancellation logic', () => {
@@ -286,12 +352,12 @@ describe('cancellation logic', () => {
     const res = await POST(makeRequest(jsonBody(), 'application/json'))
     expect(res.status).toBe(200)
 
-    // getcourse_orders update was called (call index 1 = second from() call)
-    const ordersCall = fromMock.mock.calls[1]
+    // getcourse_orders update was called (call index 2, after insert + idempotency check)
+    const ordersCall = fromMock.mock.calls[2]
     expect(ordersCall[0]).toBe('getcourse_orders')
 
-    // enrollments update was called (call index 2)
-    const enrollCall = fromMock.mock.calls[2]
+    // enrollments update was called (call index 3)
+    const enrollCall = fromMock.mock.calls[3]
     expect(enrollCall[0]).toBe('enrollments')
   })
 })

@@ -11,7 +11,7 @@ export async function sendMagicLinkEmail(
     sender: { name: 'INCF', email: 'noreply@incf.eu' },
     to: [{ email }],
     subject: 'Ваша ссылка для входа на платформу INCF',
-    textContent: `Здравствуйте!\n\nВот ваша ссылка для входа на платформу INCF Нейрокоучинг:\n\n${magicLink}\n\nСсылка одноразовая и действует 24 часа.\n\nЕсли вы не запрашивали эту ссылку — просто проигнорируйте письмо.`,
+    textContent: `Здравствуйте!\n\nВот ваша ссылка для входа на платформу INCF Нейрокоучинг:\n\n${magicLink}\n\nСсылка одноразовая и действует 1 час.\n\nЕсли вы не запрашивали эту ссылку — просто проигнорируйте письмо.`,
   }
 
   const res = await fetch(BREVO_API_URL, {
