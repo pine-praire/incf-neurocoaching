@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { createSupabaseAdminClient } from "@/lib/supabase/admin"
+import { sendMagicLinkEmail } from "@/lib/brevo"
 
 export const runtime = "nodejs"
 
@@ -41,7 +42,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true })
   }
 
-  const { data: linkData, error } = await supabase.auth.admin.generateLink({
+  const { data: linkData, error: linkError } = await supabase.auth.admin.generateLink({
     type: "magiclink",
     email,
     options: {
@@ -49,12 +50,19 @@ export async function POST(request: Request) {
     },
   })
 
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 400 })
+  if (linkError) {
+    return NextResponse.json({ error: linkError.message }, { status: 400 })
   }
 
-  // TODO: отправить через Resend
-  console.log("Resend magic link for", email, linkData.properties.action_link)
+  const magicLink = linkData.properties.action_link ?? ''
+
+  if (magicLink) {
+    try {
+      await sendMagicLinkEmail(email, magicLink)
+    } catch (emailError) {
+      console.error('Failed to resend magic link:', emailError)
+    }
+  }
 
   return NextResponse.json({ ok: true })
 }

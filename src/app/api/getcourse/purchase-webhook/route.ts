@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { createSupabaseAdminClient } from "@/lib/supabase/admin"
 import type { GetCoursePurchasePayload } from "@/lib/getcourse/types"
 import { getCourseIdByOfferId } from "@/lib/getcourse/access-map"
+import { sendMagicLinkEmail } from "@/lib/brevo"
 
 export const runtime = "nodejs"
 
@@ -150,7 +151,19 @@ export async function POST(request: Request) {
     })
     if (linkError) throw linkError
 
-    // TODO: отправить linkData.properties.action_link через Resend
+    const magicLink = linkData.properties.action_link ?? ''
+
+    if (!magicLink) {
+      console.error('Empty magic link for', email)
+      return NextResponse.json({ ok: true })
+    }
+
+    try {
+      await sendMagicLinkEmail(email, magicLink)
+    } catch (emailError) {
+      // Логируем, но не роняем вебхук — GetCourse не должен получать 500
+      console.error('Failed to send magic link email:', emailError)
+    }
 
     if (eventLog?.id) {
       await supabase.from("webhook_events").update({
@@ -158,11 +171,7 @@ export async function POST(request: Request) {
       }).eq("id", eventLog.id)
     }
 
-    const magicLink = linkData.properties.action_link ?? ''
-    return new Response(magicLink, {
-      status: 200,
-      headers: { 'Content-Type': 'text/plain' },
-    })
+    return NextResponse.json({ ok: true })
 
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error"
