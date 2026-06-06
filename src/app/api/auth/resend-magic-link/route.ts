@@ -24,17 +24,22 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true })
   }
 
-  const { data: profile } = await supabase
+  const { data: profile, error: profileError } = await supabase
     .from("profiles")
     .select("id")
     .eq("email", email)
     .maybeSingle()
 
+  if (profileError) {
+    console.error("profiles lookup failed:", profileError)
+    return NextResponse.json({ error: profileError.message }, { status: 500 })
+  }
+
   if (!profile) {
     return NextResponse.json({ ok: true })
   }
 
-  const { data: activeEnrollment } = await supabase
+  const { data: activeEnrollment, error: enrollmentError } = await supabase
     .from("enrollments")
     .select("id")
     .eq("user_id", profile.id)
@@ -42,14 +47,18 @@ export async function POST(request: Request) {
     .limit(1)
     .maybeSingle()
 
+  if (enrollmentError) {
+    console.error("enrollment lookup failed:", enrollmentError)
+    return NextResponse.json({ error: enrollmentError.message }, { status: 500 })
+  }
+
   if (!activeEnrollment) {
     return NextResponse.json({ ok: true })
   }
 
-  let linkData: Awaited<ReturnType<typeof supabase.auth.admin.generateLink>>['data']
-
+  let magicLink: string
   try {
-    const { data, error: linkError } = await supabase.auth.admin.generateLink({
+    const { data: linkData, error: linkError } = await supabase.auth.admin.generateLink({
       type: "magiclink",
       email,
       options: {
@@ -57,7 +66,7 @@ export async function POST(request: Request) {
       },
     })
     if (linkError) throw linkError
-    linkData = data
+    magicLink = linkData?.properties?.action_link ?? ''
   } catch (err) {
     const msg = err instanceof Error ? err.message
       : (typeof err === 'object' && err !== null && 'message' in err)
@@ -66,8 +75,6 @@ export async function POST(request: Request) {
     console.error('generateLink failed:', msg)
     return NextResponse.json({ error: msg }, { status: 500 })
   }
-
-  const magicLink = linkData?.properties?.action_link ?? ''
 
   if (magicLink) {
     try {

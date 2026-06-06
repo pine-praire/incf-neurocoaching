@@ -160,27 +160,28 @@ export async function POST(request: Request) {
     }, { onConflict: "user_id,course_id" })
 
     // Отправить magic link через generateLink (серверный метод)
-    const { data: linkData, error: linkError } = await supabase.auth.admin.generateLink({
-      type: "magiclink",
-      email,
-      options: {
-        redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/auth/callback`,
-      },
-    })
-    if (linkError) throw linkError
-
-    const magicLink = linkData.properties.action_link ?? ''
-
-    if (!magicLink) {
-      console.error('Empty magic link generated')
-      return NextResponse.json({ ok: true })
+    let magicLink = ''
+    try {
+      const { data: linkData, error: linkError } = await supabase.auth.admin.generateLink({
+        type: "magiclink",
+        email,
+        options: {
+          redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/auth/callback`,
+        },
+      })
+      if (linkError) throw linkError
+      magicLink = linkData?.properties?.action_link ?? ''
+    } catch (linkErr) {
+      console.error('generateLink failed:', linkErr)
     }
 
-    try {
-      await sendMagicLinkEmail(email, magicLink)
-    } catch (emailError) {
-      // Логируем, но не роняем вебхук — GetCourse не должен получать 500
-      console.error('Failed to send magic link email:', emailError)
+    if (magicLink) {
+      try {
+        await sendMagicLinkEmail(email, magicLink)
+      } catch (emailError) {
+        // Логируем, но не роняем вебхук — GetCourse не должен получать 500
+        console.error('Failed to send magic link email:', emailError)
+      }
     }
 
     if (eventLog?.id) {
