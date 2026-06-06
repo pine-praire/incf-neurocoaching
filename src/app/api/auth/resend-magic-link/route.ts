@@ -36,7 +36,7 @@ export async function POST(request: Request) {
   }
 
   if (!profile) {
-    return NextResponse.json({ ok: true })
+    return NextResponse.json({ error: 'not_registered' }, { status: 404 })
   }
 
   const { data: activeEnrollment, error: enrollmentError } = await supabase
@@ -53,7 +53,7 @@ export async function POST(request: Request) {
   }
 
   if (!activeEnrollment) {
-    return NextResponse.json({ ok: true })
+    return NextResponse.json({ error: 'not_registered' }, { status: 404 })
   }
 
   let magicLink: string

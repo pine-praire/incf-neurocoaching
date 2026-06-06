@@ -105,10 +105,10 @@ describe('input validation', () => {
   })
 })
 
-// ── User enumeration protection ───────────────────────────────────────────────
+// ── Not registered — explicit error ───────────────────────────────────────────
 
-describe('enumeration protection', () => {
-  it('returns { ok: true } for unknown email without sending any email — 50 runs', async () => {
+describe('not registered', () => {
+  it('returns 404 not_registered for unknown email without sending any email — 50 runs', async () => {
     for (let run = 0; run < 50; run++) {
       vi.mocked(createSupabaseAdminClient).mockReturnValue(
         makeMockClient({ profileExists: false }) as unknown as ReturnType<typeof createSupabaseAdminClient>
@@ -116,15 +116,15 @@ describe('enumeration protection', () => {
 
       const res = await POST(makeRequest({ email: `unknown${run}@example.com` }))
 
-      expect(res.status, `run ${run}`).toBe(200)
-      expect(await res.json(), `run ${run}`).toEqual({ ok: true })
+      expect(res.status, `run ${run}`).toBe(404)
+      expect((await res.json()).error, `run ${run}`).toBe('not_registered')
       expect(sendMagicLinkEmail, `run ${run}: must not send to unknown email`).not.toHaveBeenCalled()
 
       vi.clearAllMocks()
     }
   })
 
-  it('returns { ok: true } for user without active enrollment — 50 runs', async () => {
+  it('returns 404 not_registered for user without active enrollment — 50 runs', async () => {
     for (let run = 0; run < 50; run++) {
       vi.mocked(createSupabaseAdminClient).mockReturnValue(
         makeMockClient({ profileExists: true, enrollmentExists: false }) as unknown as ReturnType<typeof createSupabaseAdminClient>
@@ -132,8 +132,8 @@ describe('enumeration protection', () => {
 
       const res = await POST(makeRequest({ email: `revoked${run}@example.com` }))
 
-      expect(res.status, `run ${run}`).toBe(200)
-      expect(await res.json(), `run ${run}`).toEqual({ ok: true })
+      expect(res.status, `run ${run}`).toBe(404)
+      expect((await res.json()).error, `run ${run}`).toBe('not_registered')
       expect(sendMagicLinkEmail, `run ${run}: must not send to revoked user`).not.toHaveBeenCalled()
 
       vi.clearAllMocks()

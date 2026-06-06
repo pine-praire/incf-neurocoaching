@@ -2,6 +2,9 @@
 
 import { useState } from 'react'
 
+const NOT_REGISTERED_MSG =
+  'Этот адрес не зарегистрирован. Проверьте, через какой адрес вы покупали курс «Введение в нейрокоучинг».'
+
 export default function LoginPage() {
   const [email, setEmail] = useState('')
   const [sent, setSent] = useState(false)
@@ -19,7 +22,9 @@ export default function LoginPage() {
     })
     if (!res.ok) {
       const data = await res.json().catch(() => ({}))
-      setError(data.error ?? 'Ошибка отправки. Попробуйте ещё раз.')
+      setError(data.error === 'not_registered'
+        ? NOT_REGISTERED_MSG
+        : 'Ошибка отправки. Попробуйте ещё раз.')
       setLoading(false)
       return
     }
@@ -70,24 +75,34 @@ export default function LoginPage() {
             </p>
           </div>
         ) : (
-          <>
-            <form onSubmit={handleMagicLink} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              <input
-                type="email" value={email} onChange={e => setEmail(e.target.value)}
-                placeholder="твой@email.com" required
-                style={inputStyle}
-              />
-              {error && <p style={errorStyle}>{error}</p>}
-              <button type="submit" disabled={loading} style={submitStyle(loading)}>
-                {loading ? 'Отправляем...' : 'Получить ссылку для входа'}
-              </button>
-            </form>
-          </>
+          <form onSubmit={handleMagicLink} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <input
+              type="email" value={email} onChange={e => setEmail(e.target.value)}
+              placeholder="твой@email.com" required
+              style={inputStyle}
+            />
+            {error && (
+              <p style={errorStyle}>{error}</p>
+            )}
+            <button type="submit" disabled={loading} style={submitStyle(loading)}>
+              {loading ? 'Отправляем...' : 'Получить ссылку для входа'}
+            </button>
+          </form>
         )}
 
-        <p style={{ fontSize: 11.5, color: 'var(--ink-mute)', textAlign: 'center', margin: 0 }}>
-          Доступ к платформе предоставляется после покупки курса.
-        </p>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 4 }}>
+          <p style={{ fontSize: 11.5, color: 'var(--ink-mute)', textAlign: 'center', margin: 0 }}>
+            Доступ к платформе предоставляется после покупки курса.
+          </p>
+          <a
+            href="https://incf.eu/vvedenie"
+            target="_blank"
+            rel="noopener noreferrer"
+            style={buyButtonStyle}
+          >
+            Купить «Введение в нейрокоучинг»
+          </a>
+        </div>
       </div>
     </div>
   )
@@ -101,7 +116,7 @@ const inputStyle: React.CSSProperties = {
 }
 
 const errorStyle: React.CSSProperties = {
-  fontSize: 12.5, color: 'var(--terra-2)', margin: 0,
+  fontSize: 12.5, color: 'var(--terra-2)', margin: 0, lineHeight: 1.5,
 }
 
 const submitStyle = (loading: boolean): React.CSSProperties => ({
@@ -112,3 +127,12 @@ const submitStyle = (loading: boolean): React.CSSProperties => ({
   opacity: loading ? 0.7 : 1,
   boxShadow: '0 6px 16px -6px rgba(180,80,50,.5)',
 })
+
+const buyButtonStyle: React.CSSProperties = {
+  display: 'block', textAlign: 'center',
+  background: 'transparent', color: 'var(--terra-2)',
+  border: '1.5px solid var(--terra-2)', borderRadius: 999,
+  padding: '10px 16px', fontWeight: 600, fontSize: 13,
+  fontFamily: 'var(--font-body)', textDecoration: 'none',
+  cursor: 'pointer',
+}
