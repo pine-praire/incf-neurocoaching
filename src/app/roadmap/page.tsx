@@ -6,6 +6,7 @@ import {
   computeXP, blockProgress,
   type Lesson,
 } from '@/lib/course-data'
+import { LESSON_ANNOTATIONS } from '@/lib/lesson-annotations'
 import { markStepDone, undoStep, saveAnswer, loadProgress } from '@/app/actions/progress'
 import { createClient } from '@/lib/supabase/client'
 import { HeroBlock } from './hero-block'
@@ -36,16 +37,21 @@ type OpenLesson = Lesson | {
   pre?: string; nativePitch?: string
 }
 
-type AnnotationType = 'fact' | 'alumni' | 'l1' | 'diagnostic'
+type AnnotationType = 'fact' | 'alumni' | 'l1' | 'diagnostic' | 'hat' | 'bulb' | 'bubble'
 
 interface Annotation {
   id: string
   stampId: string
   preferredSide: 'left' | 'right'
   type: AnnotationType
-  content: React.ReactNode
+  content?: React.ReactNode
+  items?: string[]
+  itemIcon?: string
+  itemLabel?: string
+  itemTone?: 'sage' | 'gold' | 'terra'
   compactIcon: string
   compactLabel: string
+  compactXOffset?: number
 }
 
 const W = 1080, H = 1700
@@ -130,17 +136,6 @@ function NativeMention({ moduleRef }: { moduleRef: string }) {
   )
 }
 
-function AlumniCard({ name, role, quote }: { name: string; role: string; quote: string }) {
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 12, boxShadow: 'var(--shadow-sm)' }}>
-      <div style={{ width: 36, height: 36, borderRadius: 999, background: 'repeating-linear-gradient(135deg,oklch(0.92 0.012 75) 0 5px,oklch(0.96 0.01 75) 5px 10px)', border: '1px solid var(--line)', flexShrink: 0 }} />
-      <div style={{ minWidth: 0 }}>
-        <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--ink)' }}>{name} <span style={{ fontWeight: 500, color: 'var(--ink-mute)' }}>· {role}</span></div>
-        <div style={{ fontSize: 11, color: 'var(--ink-2)', marginTop: 1 }}>💬 {quote}</div>
-      </div>
-    </div>
-  )
-}
 
 function DiagnosticCard() {
   return (
@@ -152,17 +147,49 @@ function DiagnosticCard() {
   )
 }
 
+function lessonAnnotations(side: 'left' | 'right', lessonId: string): Annotation[] {
+  const data = LESSON_ANNOTATIONS.find(d => d.lessonId === lessonId)
+  if (!data) return []
+  return [
+    { id: `${lessonId}-hat`,    stampId: lessonId, preferredSide: side, type: 'hat',    compactIcon: '🎓', compactLabel: 'Где узнать подробнее', compactXOffset: 0,  items: data.hat,    itemIcon: '🎓', itemLabel: 'Где узнать подробнее', itemTone: 'terra' },
+    { id: `${lessonId}-bulb`,   stampId: lessonId, preferredSide: side, type: 'bulb',   compactIcon: '💡', compactLabel: 'Интересный факт',       compactXOffset: 44, items: data.bulb,   itemIcon: '💡', itemLabel: 'Интересный факт',       itemTone: 'gold' },
+    { id: `${lessonId}-bubble`, stampId: lessonId, preferredSide: side, type: 'bubble', compactIcon: '💬', compactLabel: 'Рекомендация',           compactXOffset: 88, items: data.bubble, itemIcon: '💬', itemLabel: 'Рекомендация',           itemTone: 'sage' },
+  ]
+}
+
 const ANNOTATIONS: Annotation[] = [
-  { id: 'a1', stampId: 'l1', preferredSide: 'right', type: 'fact', compactIcon: '💡', compactLabel: 'Этимология', content: <FunFact tag="Этимология" text='Слово «коучинг» — из венгерского "kocsi szekér". Дословно — то, что довозит до цели.' tone="sage" compact /> },
-  { id: 'a2', stampId: 'l2', preferredSide: 'left', type: 'alumni', compactIcon: '💬', compactLabel: 'Татьяна', content: <AlumniCard name="Татьяна Азарова" role="скрам-мастер → коуч" quote="Полгода назад прошла этот же курс. 8 клиентов в месяц." /> },
-  { id: 'a3', stampId: 'l4', preferredSide: 'left', type: 'fact', compactIcon: '💡', compactLabel: 'Нейронаука', content: <FunFact tag="Нейронаука" text="До 95% решений мы принимаем неосознанно. Кора рационализирует уже принятое — постфактум." tone="gold" compact /> },
-  { id: 'a4', stampId: 'l5', preferredSide: 'right', type: 'l1', compactIcon: '🎓', compactLabel: 'L1', content: <NativeMention moduleRef="«Когнитивные искажения» (4 неделя)" /> },
-  { id: 'a5', stampId: 'l7', preferredSide: 'right', type: 'alumni', compactIcon: '💬', compactLabel: 'Анастасия', content: <AlumniCard name="Анастасия Тарунтаева" role="врач → нейрокоуч" quote="«Стресс и эмоции» — урок, после которого всё изменилось." /> },
-  { id: 'a6', stampId: 'test', preferredSide: 'left', type: 'diagnostic', compactIcon: '📅', compactLabel: 'Диагностика', content: <DiagnosticCard /> },
+  ...lessonAnnotations('right', 'l1'),
+  ...lessonAnnotations('left',  'l2'),
+  ...lessonAnnotations('right', 'l5'),
+  ...lessonAnnotations('left',  'l4'),
+  ...lessonAnnotations('left',  'l6'),
+  ...lessonAnnotations('right', 'l7'),
+  { id: 'a-diag', stampId: 'test', preferredSide: 'left', type: 'diagnostic', compactIcon: '📅', compactLabel: 'Диагностика', content: <DiagnosticCard /> },
 ]
+
+function ItemCard({ icon, label, text, tone }: { icon: string; label: string; text: string; tone: 'sage' | 'gold' | 'terra' }) {
+  const tones = {
+    sage:  { bg: 'var(--sage-tint)',  ink: 'var(--sage-2)',  line: 'var(--sage-soft)' },
+    gold:  { bg: 'var(--gold-tint)',  ink: 'var(--gold-2)',  line: 'var(--gold-soft)' },
+    terra: { bg: 'var(--terra-tint)', ink: 'var(--terra-2)', line: 'var(--terra-soft)' },
+  }
+  const t = tones[tone]
+  return (
+    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '10px 12px', background: t.bg, border: `1px solid ${t.line}`, borderRadius: 12 }}>
+      <div style={{ flexShrink: 0, width: 28, height: 28, borderRadius: 999, background: '#fff', display: 'grid', placeItems: 'center', boxShadow: '0 1px 2px rgba(0,0,0,.06)' }}>
+        <span style={{ fontSize: 14 }}>{icon}</span>
+      </div>
+      <div>
+        <Eyebrow color={t.ink}>{label}</Eyebrow>
+        <p style={{ fontSize: 12, color: 'var(--ink-2)', lineHeight: 1.5, margin: '4px 0 0' }}>{text}</p>
+      </div>
+    </div>
+  )
+}
 
 function AnnotationCard({ annotation, stamp, mapWidth, isCompact }: { annotation: Annotation; stamp: Stamp; mapWidth: number; isCompact: boolean }) {
   const [popoverOpen, setPopoverOpen] = useState(false)
+  const [selectedText, setSelectedText] = useState('')
   const markerX = (stamp.x / W) * mapWidth
   const topPct = (stamp.y / H) * 100
 
@@ -173,20 +200,33 @@ function AnnotationCard({ annotation, stamp, mapWidth, isCompact }: { annotation
     return () => window.removeEventListener('click', handler)
   }, [popoverOpen])
 
-  if (isCompact) {
+  const openPopover = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (!popoverOpen && annotation.items && annotation.items.length > 0) {
+      setSelectedText(annotation.items[Math.floor(Math.random() * annotation.items.length)])
+    }
+    setPopoverOpen(p => !p)
+  }
+
+  const useCompact = isCompact || !!annotation.items
+  if (useCompact) {
     if (mapWidth < 480) return null
-    const rawIconLeft = annotation.preferredSide === 'right' ? markerX + 56 : markerX - 56 - 40
+    const sideDir = annotation.preferredSide === 'right' ? 1 : -1
+    const baseIconLeft = annotation.preferredSide === 'right' ? markerX + 56 : markerX - 56 - 40
+    const rawIconLeft = baseIconLeft + sideDir * (annotation.compactXOffset ?? 0)
     const iconLeft = Math.max(SAFE, Math.min(rawIconLeft, mapWidth - 40 - SAFE))
     return (
       <div style={{ position: 'absolute', left: iconLeft, top: `calc(${topPct}% - 20px)`, zIndex: 5 }}>
-        <button onClick={e => { e.stopPropagation(); setPopoverOpen(p => !p) }} aria-label={annotation.compactLabel}
+        <button onClick={openPopover} aria-label={annotation.compactLabel}
           style={{ width: 40, height: 40, borderRadius: 999, background: 'var(--surface)', border: '2px solid var(--line)', boxShadow: 'var(--shadow-md)', display: 'grid', placeItems: 'center', cursor: 'pointer', fontSize: 20, transition: 'transform .15s' }}>
           {annotation.compactIcon}
         </button>
         {popoverOpen && (
           <div onClick={e => e.stopPropagation()}
             style={{ position: 'absolute', left: '50%', top: 48, transform: 'translateX(-50%)', width: 'min(260px, calc(100vw - 48px))', background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 12, boxShadow: 'var(--shadow-lg)', zIndex: 20, padding: 4 }}>
-            {annotation.content}
+            {annotation.items
+              ? <ItemCard icon={annotation.itemIcon!} label={annotation.itemLabel!} text={selectedText} tone={annotation.itemTone!} />
+              : annotation.content}
           </div>
         )}
       </div>
