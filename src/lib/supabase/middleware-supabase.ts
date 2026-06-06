@@ -27,16 +27,32 @@ export async function updateSession(request: NextRequest) {
 
   const { data: { user } } = await supabase.auth.getUser()
 
-  // Protect /roadmap and other app routes — redirect to /login if not authenticated
   const isAppRoute = request.nextUrl.pathname.startsWith('/roadmap') ||
-    request.nextUrl.pathname.startsWith('/profile') ||
-    request.nextUrl.pathname.startsWith('/final')
+    request.nextUrl.pathname.startsWith('/profile')
 
   if (isAppRoute && !user) {
-    const url = request.nextUrl.clone()
-    url.pathname = '/login'
-    return NextResponse.redirect(url)
+    return redirectTo(request, '/login')
+  }
+
+  if (isAppRoute && user) {
+    const { data: enrollment } = await supabase
+      .from('enrollments')
+      .select('id')
+      .eq('user_id', user.id)
+      .eq('status', 'active')
+      .limit(1)
+      .maybeSingle()
+
+    if (!enrollment) {
+      return redirectTo(request, '/no-access')
+    }
   }
 
   return supabaseResponse
+}
+
+function redirectTo(request: NextRequest, pathname: string) {
+  const url = request.nextUrl.clone()
+  url.pathname = pathname
+  return NextResponse.redirect(url)
 }
