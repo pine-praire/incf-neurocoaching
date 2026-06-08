@@ -126,7 +126,7 @@ export function BonusGrid({ testDone }: { testDone: boolean }) {
   ]
   const tones = { terra: { bg: 'var(--terra-tint)', ink: 'var(--terra-2)' }, sage: { bg: 'var(--sage-tint)', ink: 'var(--sage-2)' }, gold: { bg: 'var(--gold-tint)', ink: 'var(--gold-2)' } }
   return (
-    <div className="bonus-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(2,1fr)', gap: 12 }}>
+    <div className="bonus-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12 }}>
       {cards.map((c, i) => {
         const t = tones[c.tone]
         return (
