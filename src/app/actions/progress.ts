@@ -118,7 +118,7 @@ export async function loadProgress() {
   if (!user) return { completed: [], answers: {}, userName: '', streak: 0 }
 
   const [{ data: progress }, { data: answers }] = await Promise.all([
-    supabase.from('progress').select('step_id, created_at').eq('user_id', user.id),
+    supabase.from('progress').select('step_id, completed_at').eq('user_id', user.id),
     supabase.from('answers').select('lesson_id, text').eq('user_id', user.id),
   ])
 
@@ -128,7 +128,7 @@ export async function loadProgress() {
     || user.email?.split('@')[0]
     || ''
 
-  const streak = computeStreak((progress ?? []).map(p => p.created_at ?? ''))
+  const streak = computeStreak((progress ?? []).map(p => p.completed_at ?? ''))
 
   return {
     completed: (progress ?? []).map(p => p.step_id),
