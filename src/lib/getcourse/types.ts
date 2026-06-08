@@ -7,6 +7,7 @@ export type GetCoursePurchasePayload = {
   phone?: string
   order_id?: string
   offer_id?: string
+  product_id?: string
   product_title?: string
   payment_status?: string
   paid_at?: string

@@ -2,7 +2,7 @@ import { timingSafeEqual } from "crypto"
 import { NextResponse } from "next/server"
 import { createSupabaseAdminClient } from "@/lib/supabase/admin"
 import type { GetCoursePurchasePayload } from "@/lib/getcourse/types"
-import { getCourseIdByOfferId } from "@/lib/getcourse/access-map"
+import { getCourseIdByOfferId, getCourseIdByProductId } from "@/lib/getcourse/access-map"
 import { sendMagicLinkEmail } from "@/lib/brevo"
 
 export const runtime = "nodejs"
@@ -47,6 +47,7 @@ export async function POST(request: Request) {
         phone: params.get("phone") ?? undefined,
         order_id: params.get("order_id") ?? undefined,
         offer_id: params.get("offer_id") ?? undefined,
+        product_id: params.get("product_id") ?? undefined,
         product_title: params.get("product_title") ?? undefined,
         payment_status: params.get("payment_status") ?? undefined,
         paid_at: params.get("paid_at") ?? undefined,
@@ -72,11 +73,12 @@ export async function POST(request: Request) {
   try {
     if (!payload.email) throw new WebhookValidationError("Missing email")
     if (!payload.order_id) throw new WebhookValidationError("Missing order_id")
-    if (!payload.offer_id) throw new WebhookValidationError("Missing offer_id")
 
     const email = normalizeEmail(payload.email)
-    const courseId = getCourseIdByOfferId(payload.offer_id)
-    if (!courseId) throw new WebhookValidationError(`Unknown offer_id: ${payload.offer_id}`)
+    const courseId =
+      (payload.offer_id ? getCourseIdByOfferId(payload.offer_id) : null) ??
+      (payload.product_id ? getCourseIdByProductId(payload.product_id) : null)
+    if (!courseId) throw new WebhookValidationError(`Unknown offer_id/product_id: ${payload.offer_id ?? payload.product_id}`)
 
     // Idempotency: skip if this order_id was already processed successfully
     const { data: existingEvent } = await supabase
@@ -134,7 +136,8 @@ export async function POST(request: Request) {
       getcourse_order_id: payload.order_id,
       getcourse_user_id: payload.getcourse_user_id,
       email,
-      offer_id: payload.offer_id,
+      offer_id: payload.offer_id ?? null,
+      getcourse_product_id: payload.product_id ?? null,
       product_title: payload.product_title,
       status: "paid",
       paid_at: payload.paid_at ?? new Date().toISOString(),
