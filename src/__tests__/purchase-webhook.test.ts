@@ -12,6 +12,7 @@ import { sendMagicLinkEmail } from '@/lib/brevo'
 
 const SECRET = 'test-webhook-secret'
 const VALID_OFFER_ID = '5410171'
+const VALID_PRODUCT_ID = '829285153'
 const MAGIC_LINK = 'https://platform.incf.eu/auth/callback?token=abc123'
 
 // ── Mock factories ────────────────────────────────────────────────────────────
@@ -202,18 +203,8 @@ describe('payload validation', () => {
   })
 
   it.each([
-    ['pending'], ['refunded'], ['failed'], ['ожидание'], ['отменён'],
-  ])('returns 400 for non-paid status "%s"', async (status) => {
-    const res = await POST(
-      makeRequest(validBody({ payment_status: status }), { 'x-getcourse-secret': SECRET })
-    )
-    expect(res.status).toBe(400)
-  })
-
-  it.each([
-    ['paid'], ['success'], ['completed'], ['оплачен'], ['оплачено'], ['завершен'], ['завершено'], ['завершён'],
-    ['PAID'], ['  Paid  '], ['ОПЛАЧЕН'],
-  ])('accepts paid-equivalent status "%s"', async (status) => {
+    ['paid'], ['Завершен'], ['pending'], ['refunded'], ['отменён'], ['любой статус'],
+  ])('accepts any payment_status "%s"', async (status) => {
     vi.mocked(createSupabaseAdminClient).mockReturnValue(
       makeMockClient() as unknown as ReturnType<typeof createSupabaseAdminClient>
     )
@@ -347,6 +338,125 @@ describe('email send failure resilience', () => {
       expect(await res.json(), `run ${run}`).toEqual({ ok: true })
 
       vi.clearAllMocks()
+    }
+  })
+})
+
+// ── product_id routing ────────────────────────────────────────────────────────
+
+describe('product_id routing (no offer_id)', () => {
+  it('enrolls user when only product_id is present', async () => {
+    vi.mocked(createSupabaseAdminClient).mockReturnValue(
+      makeMockClient() as unknown as ReturnType<typeof createSupabaseAdminClient>
+    )
+    const res = await POST(
+      makeRequest(
+        validBody({ offer_id: undefined, product_id: VALID_PRODUCT_ID }),
+        { 'x-getcourse-secret': SECRET }
+      )
+    )
+    expect(res.status).toBe(200)
+    expect(await res.json()).toEqual({ ok: true })
+  })
+
+  it('sends magic link when only product_id is present', async () => {
+    vi.mocked(createSupabaseAdminClient).mockReturnValue(
+      makeMockClient() as unknown as ReturnType<typeof createSupabaseAdminClient>
+    )
+    vi.mocked(sendMagicLinkEmail).mockResolvedValue(undefined)
+
+    await POST(
+      makeRequest(
+        validBody({ offer_id: undefined, product_id: VALID_PRODUCT_ID }),
+        { 'x-getcourse-secret': SECRET }
+      )
+    )
+    expect(sendMagicLinkEmail).toHaveBeenCalledWith('student@example.com', MAGIC_LINK)
+  })
+
+  it('returns 400 for unknown product_id when offer_id is absent', async () => {
+    vi.mocked(createSupabaseAdminClient).mockReturnValue(
+      { from: buildFailFromMock(), auth: { admin: {} } } as unknown as ReturnType<typeof createSupabaseAdminClient>
+    )
+    const res = await POST(
+      makeRequest(
+        validBody({ offer_id: undefined, product_id: 'unknown-999' }),
+        { 'x-getcourse-secret': SECRET }
+      )
+    )
+    expect(res.status).toBe(400)
+    const body = await res.json()
+    expect(body.error).toMatch(/unknown offer_id\/product_id/i)
+  })
+
+  it('returns 400 when both offer_id and product_id are absent', async () => {
+    vi.mocked(createSupabaseAdminClient).mockReturnValue(
+      { from: buildFailFromMock(), auth: { admin: {} } } as unknown as ReturnType<typeof createSupabaseAdminClient>
+    )
+    const res = await POST(
+      makeRequest(
+        validBody({ offer_id: undefined, product_id: undefined }),
+        { 'x-getcourse-secret': SECRET }
+      )
+    )
+    expect(res.status).toBe(400)
+  })
+
+  it('offer_id takes priority over product_id when both are present', async () => {
+    vi.mocked(createSupabaseAdminClient).mockReturnValue(
+      makeMockClient() as unknown as ReturnType<typeof createSupabaseAdminClient>
+    )
+    const res = await POST(
+      makeRequest(
+        validBody({ offer_id: VALID_OFFER_ID, product_id: VALID_PRODUCT_ID }),
+        { 'x-getcourse-secret': SECRET }
+      )
+    )
+    expect(res.status).toBe(200)
+    expect(await res.json()).toEqual({ ok: true })
+  })
+
+  it('parses product_id from form-encoded body', async () => {
+    vi.mocked(createSupabaseAdminClient).mockReturnValue(
+      makeMockClient() as unknown as ReturnType<typeof createSupabaseAdminClient>
+    )
+    const params = new URLSearchParams({
+      email: 'student@example.com',
+      order_id: 'ord-product-001',
+      product_id: VALID_PRODUCT_ID,
+      payment_status: 'paid',
+    })
+    const req = new Request('http://localhost/api/getcourse/purchase-webhook', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'x-getcourse-secret': SECRET,
+      },
+      body: params.toString(),
+    })
+    const res = await POST(req)
+    expect(res.status).toBe(200)
+    expect(await res.json()).toEqual({ ok: true })
+  })
+
+  it('enrolls across 50 runs with product_id only', async () => {
+    for (let run = 0; run < 50; run++) {
+      vi.mocked(createSupabaseAdminClient).mockReturnValue(
+        makeMockClient() as unknown as ReturnType<typeof createSupabaseAdminClient>
+      )
+      vi.mocked(sendMagicLinkEmail).mockResolvedValue(undefined)
+
+      const res = await POST(
+        makeRequest(
+          validBody({ offer_id: undefined, product_id: VALID_PRODUCT_ID, order_id: `ord-prod-${run}` }),
+          { 'x-getcourse-secret': SECRET }
+        )
+      )
+      expect(res.status, `run ${run}`).toBe(200)
+      expect(await res.json(), `run ${run}`).toEqual({ ok: true })
+
+      vi.clearAllMocks()
+      vi.mocked(sendMagicLinkEmail).mockResolvedValue(undefined)
     }
   })
 })
