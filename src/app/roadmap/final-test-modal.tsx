@@ -1,7 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { FINAL_TEST_QUESTIONS } from '@/lib/final-test-data'
-import { issueCertificate } from '@/app/actions/progress'
+import { issueCertificate, markStepDone } from '@/app/actions/progress'
 import { CertificateModal } from './certificate-modal'
 
 interface Props {
@@ -27,6 +27,15 @@ export function FinalTestModal({ onClose, onPass, onCertIssued }: Props) {
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
   }, [onClose])
+
+  const passed = score >= 8
+
+  // Mark test as done as soon as result phase shows with a passing score
+  useEffect(() => {
+    if (phase === 'result' && passed) {
+      markStepDone('test')
+    }
+  }, [phase, passed])
 
   const q = FINAL_TEST_QUESTIONS[currentQ]
   const total = FINAL_TEST_QUESTIONS.length
@@ -74,8 +83,6 @@ export function FinalTestModal({ onClose, onPass, onCertIssued }: Props) {
       setSaving(false)
     }
   }
-
-  const passed = score >= 8
 
   return (
     <>
@@ -187,23 +194,27 @@ export function FinalTestModal({ onClose, onPass, onCertIssued }: Props) {
 
               {passed ? (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10, background: 'var(--bg-deep)', border: '1px solid var(--line)', borderRadius: 12, padding: 16 }}>
+                  {nameError && (
+                    <div style={{ background: 'oklch(0.95 0.06 20)', border: '1px solid oklch(0.7 0.15 20)', borderRadius: 8, padding: '10px 14px', fontSize: 13, color: 'oklch(0.35 0.15 20)', fontWeight: 500 }}>
+                      ⚠ {nameError}
+                    </div>
+                  )}
                   <label style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)', fontFamily: 'var(--font-body)' }}>
-                    Имя для сертификата
+                    Имя для сертификата <span style={{ fontWeight: 400, color: 'var(--ink-mute)', fontSize: 12 }}>(латиницей)</span>
                   </label>
                   <input
                     type="text"
                     value={certName}
                     onChange={e => { setCertName(e.target.value); setNameError('') }}
-                    placeholder="Ваше имя латиницей, например: Alexandra Boldina"
+                    placeholder="Например: Alexandra Boldina"
                     style={{ width: '100%', padding: '10px 12px', fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--ink)', background: 'var(--surface)', border: `1.5px solid ${nameError ? 'oklch(0.6 0.15 20)' : 'var(--line)'}`, borderRadius: 8, outline: 'none', boxSizing: 'border-box' }}
                   />
-                  {nameError && <p style={{ fontSize: 12, color: 'oklch(0.5 0.15 20)', margin: 0 }}>{nameError}</p>}
                   <button
                     onClick={handleCertificate}
                     disabled={saving}
-                    style={{ background: 'var(--terra-2)', color: '#fff', border: 'none', padding: '11px 20px', borderRadius: 10, fontWeight: 600, fontSize: 14, fontFamily: 'var(--font-body)', cursor: saving ? 'wait' : 'pointer', boxShadow: '0 6px 16px -6px rgba(180,80,50,.5)', opacity: saving ? 0.7 : 1 }}
+                    style={{ background: 'var(--terra-2)', color: '#fff', border: 'none', padding: '13px 20px', borderRadius: 10, fontWeight: 600, fontSize: 15, fontFamily: 'var(--font-body)', cursor: saving ? 'wait' : 'pointer', boxShadow: '0 6px 16px -6px rgba(180,80,50,.5)', opacity: saving ? 0.7 : 1 }}
                   >
-                    {saving ? 'Создаём сертификат...' : '🎓 Получить сертификат'}
+                    {saving ? 'Создаём сертификат...' : 'Получить сертификат'}
                   </button>
                 </div>
               ) : (
