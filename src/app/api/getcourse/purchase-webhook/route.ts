@@ -13,14 +13,6 @@ function normalizeEmail(email: string) {
   return email.trim().toLowerCase()
 }
 
-function isPaidStatus(status?: string) {
-  if (!status) return false
-  const normalized = status.trim().toLowerCase()
-  return [
-    "paid", "success", "completed",
-    "оплачен", "оплачено", "завершен", "завершено", "завершён"
-  ].includes(normalized)
-}
 
 export async function POST(request: Request) {
   const supabase = createSupabaseAdminClient()
@@ -81,7 +73,6 @@ export async function POST(request: Request) {
     if (!payload.email) throw new WebhookValidationError("Missing email")
     if (!payload.order_id) throw new WebhookValidationError("Missing order_id")
     if (!payload.offer_id) throw new WebhookValidationError("Missing offer_id")
-    if (!isPaidStatus(payload.payment_status)) throw new WebhookValidationError(`Payment status is not paid: ${payload.payment_status}`)
 
     const email = normalizeEmail(payload.email)
     const courseId = getCourseIdByOfferId(payload.offer_id)
