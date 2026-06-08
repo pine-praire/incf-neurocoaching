@@ -150,12 +150,12 @@ function CertificateDoc({ name, certNumber, issuedAt }: {
   certNumber: number
   issuedAt: string
 }) {
-  const date = new Date(issuedAt).toLocaleDateString('ru-RU', {
+  const date = new Date(issuedAt).toLocaleDateString('en-GB', {
     day: '2-digit', month: 'long', year: 'numeric',
   })
 
   return (
-    <Document title={`Сертификат INCF — ${name}`}>
+    <Document title={`INCF Certificate — ${name}`}>
       <Page size="A4" orientation="landscape" style={s.page}>
         <View style={s.border} />
         <View style={s.innerBorder} />
@@ -168,13 +168,13 @@ function CertificateDoc({ name, certNumber, issuedAt }: {
           <View style={s.dividerTop} />
         </View>
 
-        <Text style={s.title}>СЕРТИФИКАТ</Text>
-        <Text style={s.subtitle}>об успешном прохождении курса</Text>
+        <Text style={s.title}>CERTIFICATE</Text>
+        <Text style={s.subtitle}>of course completion</Text>
 
-        <Text style={s.body}>Настоящим подтверждается, что</Text>
+        <Text style={s.body}>This is to certify that</Text>
         <Text style={s.name}>{name}</Text>
-        <Text style={s.body}>успешно прошёл(а) онлайн-курс</Text>
-        <Text style={s.courseLine}>«Введение в нейрокоучинг»</Text>
+        <Text style={s.body}>has successfully completed the online course</Text>
+        <Text style={s.courseLine}>Introduction to Neurocoaching</Text>
         <Text style={s.courseOrg}>INCF — International Neurological Coaching Federation</Text>
 
         <View style={s.divider} />
@@ -182,15 +182,15 @@ function CertificateDoc({ name, certNumber, issuedAt }: {
         <View style={s.footer}>
           <View style={s.footerBlock}>
             <View style={s.footerLine} />
-            <Text style={s.footerLabel}>Дата выдачи</Text>
+            <Text style={s.footerLabel}>Date of Issue</Text>
             <Text style={s.footerValue}>{date}</Text>
           </View>
           <View style={s.footerBlock}>
-            <Text style={s.certNum}>№ {certNumber}</Text>
+            <Text style={s.certNum}>No. {certNumber}</Text>
           </View>
           <View style={s.footerBlock}>
             <View style={s.footerLine} />
-            <Text style={s.footerLabel}>Директор программы</Text>
+            <Text style={s.footerLabel}>Programme Director</Text>
             <Text style={s.footerValue}>Alexandra Boldina</Text>
           </View>
         </View>

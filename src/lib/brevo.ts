@@ -10,7 +10,7 @@ export async function sendCertificateEmail(
   const apiKey = process.env.BREVO_API_KEY
   if (!apiKey) throw new Error('Missing BREVO_API_KEY')
 
-  const date = new Date(issuedAt).toLocaleDateString('ru-RU', { day: '2-digit', month: 'long', year: 'numeric' })
+  const date = new Date(issuedAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' })
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://incf-neurocoaching.vercel.app'
 
   const htmlContent = `
