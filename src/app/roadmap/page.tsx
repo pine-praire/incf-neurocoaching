@@ -474,7 +474,7 @@ function RoadmapStamp({ stamp, completed, nextId, isLocked, onOpen, onFinalTest,
         {status !== 'done' && status !== 'locked' && kind === 'badge' && <span style={{ fontSize: fs(30) }}>🏆</span>}
         {status === 'done' && isReward && <span style={{ fontSize: fs(34) }}>🏆</span>}
         {status !== 'done' && status !== 'locked' && kind === 'final' && <span style={{ fontSize: fs(26) }}>{id === 'test' ? '📝' : '💬'}</span>}
-        {kind === 'cert' && status !== 'locked' && <span style={{ fontSize: fs(status === 'done' ? 34 : 26) }}>📜</span>}
+        {kind === 'cert' && status === 'next' && <span style={{ fontSize: fs(26) }}>🏆</span>}
       </div>
       {showLabel && (
         <span style={{ position: 'absolute', top: '100%', left: '50%', transform: 'translate(-50%, 5px)', whiteSpace: 'nowrap', fontFamily: 'var(--font-display)', fontSize: Math.max(9, Math.round(11 * sc)), fontWeight: 600, color: 'var(--ink)', background: 'rgba(255,255,255,.88)', backdropFilter: 'blur(2px)', padding: '2px 9px', borderRadius: 999, border: '1px solid var(--line)', zIndex: 4 }}>
