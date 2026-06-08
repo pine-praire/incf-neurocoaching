@@ -7,11 +7,12 @@ import {
   type Lesson,
 } from '@/lib/course-data'
 import { LESSON_ANNOTATIONS } from '@/lib/lesson-annotations'
-import { markStepDone, undoStep, saveAnswer, loadProgress } from '@/app/actions/progress'
+import { markStepDone, undoStep, saveAnswer, loadProgress, saveSixAnswers } from '@/app/actions/progress'
 import { createClient } from '@/lib/supabase/client'
 import { HeroBlock } from './hero-block'
 import { TopBar, BonusGrid } from './roadmap-ui'
 import { FinalTestModal } from './final-test-modal'
+import { SixQuestionsModal } from './six-questions-modal'
 import { QUEST_LESSON_IDS } from '@/lib/quest-meta'
 
 const questLessonIds = new Set<string>(QUEST_LESSON_IDS)
@@ -388,9 +389,9 @@ function PathRoad({ completed }: { completed: Set<string> }) {
   )
 }
 
-function RoadmapStamp({ stamp, completed, nextId, isLocked, onOpen, onFinalTest, mapWidth }: {
+function RoadmapStamp({ stamp, completed, nextId, isLocked, onOpen, onFinalTest, onSixQuestions, mapWidth }: {
   stamp: Stamp; completed: Set<string>; nextId: string | null
-  isLocked: (id: string) => boolean; onOpen: (lesson: OpenLesson) => void; onFinalTest?: () => void
+  isLocked: (id: string) => boolean; onOpen: (lesson: OpenLesson) => void; onFinalTest?: () => void; onSixQuestions?: () => void
   mapWidth: number
 }) {
   const [hovered, setHovered] = useState(false)
@@ -442,7 +443,7 @@ function RoadmapStamp({ stamp, completed, nextId, isLocked, onOpen, onFinalTest,
 
   return (
     <button
-      onClick={() => { if (status === 'locked') return; if (id === 'test') { onFinalTest?.(); return; } const l = getLessonForModal(); if (l) onOpen(l) }}
+      onClick={() => { if (status === 'locked') return; if (id === 'test') { onFinalTest?.(); return; } if (id === 'six') { onSixQuestions?.(); return; } const l = getLessonForModal(); if (l) onOpen(l) }}
       onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}
       aria-label={`${label}, ${status === 'done' ? 'пройдено' : status === 'next' ? 'следующее' : status === 'locked' ? 'заблокировано' : 'доступно'}`}
       style={{
@@ -494,6 +495,7 @@ export default function RoadmapPage() {
   const [answers, setAnswers] = useState<Record<string, string>>({})
   const [openLesson, setOpenLesson] = useState<OpenLesson | null>(null)
   const [showFinalTest, setShowFinalTest] = useState(false)
+  const [showSixModal, setShowSixModal] = useState(false)
   const [mapWidth, setMapWidth] = useState(0)
   const [loading, setLoading] = useState(true)
   const [userName, setUserName] = useState('')
@@ -607,7 +609,7 @@ userName={userName}
               <div ref={mapRef} style={{ position: 'relative', width: '100%', aspectRatio: `${W} / ${H}` }}>
                 <PathRoad completed={completed} />
                 {STAMPS.map(stamp => (
-                  <RoadmapStamp key={stamp.id} stamp={stamp} completed={completed} nextId={nextLesson?.id ?? null} isLocked={isLocked} onOpen={setOpenLesson} onFinalTest={() => setShowFinalTest(true)} mapWidth={mapWidth} />
+                  <RoadmapStamp key={stamp.id} stamp={stamp} completed={completed} nextId={nextLesson?.id ?? null} isLocked={isLocked} onOpen={setOpenLesson} onFinalTest={() => setShowFinalTest(true)} onSixQuestions={() => setShowSixModal(true)} mapWidth={mapWidth} />
                 ))}
                 {mapWidth > 0 && ANNOTATIONS.map(annotation => {
                   const stamp = STAMPS.find(s => s.id === annotation.stampId)
@@ -631,6 +633,16 @@ userName={userName}
         <FinalTestModal
           onClose={() => setShowFinalTest(false)}
           onPass={() => { markDone('test'); setShowFinalTest(false) }}
+        />
+      )}
+
+      {showSixModal && (
+        <SixQuestionsModal
+          initialAnswers={answers}
+          alreadyDone={completed.has('six')}
+          onClose={() => setShowSixModal(false)}
+          onSave={async (a) => { await saveSixAnswers(a); setAnswers(prev => ({ ...prev, ...a })) }}
+          onPass={() => { markDone('six'); setShowSixModal(false) }}
         />
       )}
 

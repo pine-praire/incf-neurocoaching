@@ -97,6 +97,26 @@ export async function saveCertificateName(name: string) {
   return { ok: true }
 }
 
+export async function saveSixAnswers(answersMap: Record<string, string>) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Not authenticated' }
+
+  const rows = Object.entries(answersMap).map(([lesson_id, text]) => ({
+    user_id: user.id,
+    lesson_id,
+    text: text.slice(0, 2000),
+    updated_at: new Date().toISOString(),
+  }))
+
+  const { error } = await supabase
+    .from('answers')
+    .upsert(rows, { onConflict: 'user_id,lesson_id' })
+
+  if (error) return { error: error.message }
+  return { ok: true }
+}
+
 export async function issueCertificate(name: string): Promise<{
   ok?: boolean; certNumber?: number; name?: string; issuedAt?: string; error?: string
 }> {
