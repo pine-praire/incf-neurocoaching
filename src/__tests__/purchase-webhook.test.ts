@@ -287,6 +287,57 @@ describe('happy path — new user', () => {
   })
 })
 
+// ── Magic link destination ────────────────────────────────────────────────────
+
+describe('magic link destination', () => {
+  it('generateLink is called with redirectTo pointing to /auth/callback', async () => {
+    const client = makeMockClient()
+    vi.mocked(createSupabaseAdminClient).mockReturnValue(
+      client as unknown as ReturnType<typeof createSupabaseAdminClient>
+    )
+
+    await POST(makeRequest(validBody(), { 'x-getcourse-secret': SECRET }))
+
+    expect(client.auth.admin.generateLink).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'magiclink',
+        options: expect.objectContaining({
+          redirectTo: expect.stringContaining('/auth/callback'),
+        }),
+      })
+    )
+  })
+
+  it('generateLink redirectTo never points directly to /roadmap — always via /auth/callback', async () => {
+    const client = makeMockClient()
+    vi.mocked(createSupabaseAdminClient).mockReturnValue(
+      client as unknown as ReturnType<typeof createSupabaseAdminClient>
+    )
+
+    await POST(makeRequest(validBody(), { 'x-getcourse-secret': SECRET }))
+
+    const call = client.auth.admin.generateLink.mock.calls[0][0] as { options?: { redirectTo?: string } }
+    const redirectTo = call.options?.redirectTo ?? ''
+    expect(redirectTo).not.toContain('/roadmap')
+    expect(redirectTo).toContain('/auth/callback')
+  })
+
+  it('magic link is sent to the correct email', async () => {
+    const client = makeMockClient()
+    vi.mocked(createSupabaseAdminClient).mockReturnValue(
+      client as unknown as ReturnType<typeof createSupabaseAdminClient>
+    )
+    vi.mocked(sendMagicLinkEmail).mockResolvedValue(undefined)
+
+    await POST(makeRequest(validBody({ email: 'student@example.com' }), { 'x-getcourse-secret': SECRET }))
+
+    expect(client.auth.admin.generateLink).toHaveBeenCalledWith(
+      expect.objectContaining({ email: 'student@example.com' })
+    )
+    expect(sendMagicLinkEmail).toHaveBeenCalledWith('student@example.com', MAGIC_LINK)
+  })
+})
+
 // ── Security ─────────────────────────────────────────────────────────────────
 
 describe('security — response body', () => {

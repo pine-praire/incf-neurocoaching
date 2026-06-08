@@ -98,6 +98,21 @@ describe('magic link — happy path', () => {
       vi.clearAllMocks()
     }
   })
+
+  it('never redirects to /login on success', async () => {
+    const router = makeRouter()
+    vi.mocked(useRouter).mockReturnValue(router as ReturnType<typeof useRouter>)
+    vi.mocked(useSearchParams).mockReturnValue(
+      makeSearchParams({ token_hash: 'valid-token', type: 'magiclink' }) as ReturnType<typeof useSearchParams>
+    )
+    vi.mocked(createClient).mockReturnValue(makeSupabase() as ReturnType<typeof createClient>)
+
+    render(<AuthCallbackPage />)
+
+    await waitFor(() => expect(router.replace).toHaveBeenCalled())
+    expect(router.replace).not.toHaveBeenCalledWith(expect.stringContaining('/login'))
+    expect(router.replace).toHaveBeenCalledWith('/roadmap?session=start')
+  })
 })
 
 // ── Magic link: failure paths ─────────────────────────────────────────────────
