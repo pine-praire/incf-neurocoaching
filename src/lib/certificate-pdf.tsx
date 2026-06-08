@@ -6,7 +6,7 @@ const s = StyleSheet.create({
   page: {
     backgroundColor: '#f5f3f0',
     paddingHorizontal: 64,
-    paddingVertical: 52,
+    paddingVertical: 36,
     fontFamily: 'Helvetica',
     position: 'relative',
   },
@@ -25,8 +25,8 @@ const s = StyleSheet.create({
   },
   header: {
     alignItems: 'center',
-    marginBottom: 28,
-    marginTop: 8,
+    marginBottom: 20,
+    marginTop: 4,
   },
   badge: {
     width: 52,
@@ -63,8 +63,8 @@ const s = StyleSheet.create({
     color: '#1c2233',
     textAlign: 'center',
     letterSpacing: 1,
-    marginTop: 28,
-    marginBottom: 10,
+    marginTop: 18,
+    marginBottom: 8,
   },
   subtitle: {
     fontSize: 10,
@@ -100,7 +100,7 @@ const s = StyleSheet.create({
     fontSize: 11,
     color: '#5b6271',
     textAlign: 'center',
-    marginBottom: 32,
+    marginBottom: 22,
   },
   divider: {
     height: 1,
