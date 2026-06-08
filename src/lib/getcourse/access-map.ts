@@ -3,6 +3,7 @@ export const OFFER_TO_COURSE: Record<string, string> = {
   "5241770": "neurocoaching-intro",
   "5410171": "neurocoaching-intro",
   "6460338": "neurocoaching-intro",
+  "829285153": "neurocoaching-intro",
 }
 
 export function getCourseIdByOfferId(offerId: string): string | null {
