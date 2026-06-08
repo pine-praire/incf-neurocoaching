@@ -18,13 +18,15 @@ export async function POST(request: Request) {
   const supabase = createSupabaseAdminClient()
 
   const secretFromHeader = request.headers.get("x-getcourse-secret")
+  const secretFromQuery = new URL(request.url).searchParams.get("secret")
+  const incomingSecret = secretFromHeader ?? secretFromQuery ?? ''
   const expectedSecret = process.env.GETCOURSE_WEBHOOK_SECRET
 
   if (!expectedSecret) {
     return NextResponse.json({ error: "Server is not configured" }, { status: 500 })
   }
 
-  const a = Buffer.from(secretFromHeader ?? '', 'utf8')
+  const a = Buffer.from(incomingSecret, 'utf8')
   const b = Buffer.from(expectedSecret, 'utf8')
   if (a.length !== b.length || !timingSafeEqual(a, b)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
