@@ -135,10 +135,10 @@ describe('BonusGrid', () => {
     expect(grid).toBeTruthy()
   })
 
-  it('renders exactly 4 bonus cards', () => {
+  it('renders exactly 3 bonus cards', () => {
     const { container } = render(<BonusGrid testDone={false} />)
     const cards = container.querySelectorAll('.bonus-grid > div')
-    expect(cards.length).toBe(4)
+    expect(cards.length).toBe(3)
   })
 
   it('shows lock indicator on diagnostic card when testDone=false', () => {
