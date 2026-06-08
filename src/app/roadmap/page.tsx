@@ -404,8 +404,9 @@ function RoadmapStamp({ stamp, completed, nextId, isLocked, onOpen, onFinalTest,
       if (p.ratio >= 1) return 'done'; if (p.done > 0) return 'next'; return 'locked'
     }
     if (kind === 'cert') {
-      if (FINALS.every(f => completed.has(f.id))) return 'done'
-      if (completed.has('test')) return 'next'; return 'locked'
+      if (completed.has('test')) return 'done'
+      if (LESSONS.every(l => completed.has(l.id))) return 'next'
+      return 'locked'
     }
     if (completed.has(id)) return 'done'
     if (id === nextId) return 'next'
@@ -636,7 +637,7 @@ userName={userName}
       {showFinalTest && (
         <FinalTestModal
           onClose={() => setShowFinalTest(false)}
-          onPass={() => setShowFinalTest(false)}
+          onPass={() => { markDone('test'); setShowFinalTest(false) }}
           onCertIssued={(cd) => setCertData(cd)}
         />
       )}

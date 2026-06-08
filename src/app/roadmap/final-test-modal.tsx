@@ -1,7 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { FINAL_TEST_QUESTIONS } from '@/lib/final-test-data'
-import { issueCertificate, markStepDone } from '@/app/actions/progress'
+import { issueCertificate } from '@/app/actions/progress'
 import { CertificateModal } from './certificate-modal'
 
 interface Props {
@@ -29,13 +29,6 @@ export function FinalTestModal({ onClose, onPass, onCertIssued }: Props) {
   }, [onClose])
 
   const passed = score >= 8
-
-  // Mark test as done as soon as result phase shows with a passing score
-  useEffect(() => {
-    if (phase === 'result' && passed) {
-      markStepDone('test')
-    }
-  }, [phase, passed])
 
   const q = FINAL_TEST_QUESTIONS[currentQ]
   const total = FINAL_TEST_QUESTIONS.length
