@@ -120,10 +120,10 @@ export function WelcomeCard({ onStart }: { onStart: () => void }) {
 
 export function BonusGrid({ testDone }: { testDone: boolean }) {
   const cards = [
-    { emoji: '⚡', tag: 'Бонус за раннее решение', title: 'Примите решение о L1 до конца курса', body: 'Личная 30-минутная сессия с Александрой + 5% к любому тарифу.', tone: 'terra' as const, cta: 'Узнать подробнее', locked: false },
-    { emoji: '📅', tag: 'После итогового теста', title: 'Бесплатная диагностика 30 минут', body: 'Разбор вашей точки А и плана из 3 шагов. Открывается после прохождения теста.', tone: 'sage' as const, cta: 'Забронировать слот', locked: !testDone },
-    { emoji: '💬', tag: 'Кейс выпускника', title: 'Татьяна, скрам-мастер → нейрокоуч', body: 'Прошла курс в апреле, сейчас ведёт 8 клиентов в месяц по 50 €.', tone: 'gold' as const, cta: 'Читать историю', locked: false },
-    { emoji: '📚', tag: 'Дополнительные материалы', title: 'Пять препятствий на пути коуча', body: 'Лекция Александры Болдиной + чек-листы + статья про компетенции INCF.', tone: 'sage' as const, cta: 'Открыть материалы', locked: false },
+    { emoji: '⚡', tag: 'Бонус за раннее решение', title: 'Примите решение о L1 до конца курса', body: '+ 5% к любому тарифу.', tone: 'terra' as const, cta: 'Узнать подробнее', href: 'https://incf.eu', locked: false },
+    { emoji: '📅', tag: 'После итогового теста', title: 'Бесплатная диагностика 30 минут', body: 'Разбор вашей точки А и плана из 3 шагов. Открывается после прохождения теста.', tone: 'sage' as const, cta: 'Забронировать слот', href: undefined, locked: !testDone },
+    { emoji: '💬', tag: 'Кейс выпускника', title: 'Татьяна, скрам-мастер → нейрокоуч', body: 'Прошла курс в апреле, сейчас ведёт 8 клиентов в месяц по 50 €.', tone: 'gold' as const, cta: 'Читать историю', href: undefined, locked: false },
+    { emoji: '📚', tag: 'Дополнительные материалы', title: 'Пять препятствий на пути коуча', body: 'Лекция Александры Болдиной + чек-листы + статья про компетенции INCF.', tone: 'sage' as const, cta: 'Открыть материалы', href: undefined, locked: false },
   ]
   const tones = { terra: { bg: 'var(--terra-tint)', ink: 'var(--terra-2)' }, sage: { bg: 'var(--sage-tint)', ink: 'var(--sage-2)' }, gold: { bg: 'var(--gold-tint)', ink: 'var(--gold-2)' } }
   return (
@@ -139,9 +139,15 @@ export function BonusGrid({ testDone }: { testDone: boolean }) {
             </div>
             <h4 style={{ fontFamily: 'var(--font-display)', fontSize: 14.5, fontWeight: 600, color: 'var(--ink)', margin: 0 }}>{c.title}</h4>
             <p style={{ fontSize: 12, color: 'var(--ink-soft)', margin: 0, flex: 1 }}>{c.body}</p>
-            <button style={{ background: 'none', border: 'none', color: c.locked ? 'var(--ink-mute)' : t.ink, fontSize: 12, fontWeight: 600, fontFamily: 'var(--font-body)', cursor: c.locked ? 'not-allowed' : 'pointer', padding: 0, display: 'inline-flex', alignItems: 'center', gap: 4, alignSelf: 'flex-start' }}>
-              {c.cta} →
-            </button>
+            {c.href && !c.locked ? (
+              <a href={c.href} target="_blank" rel="noopener noreferrer" style={{ color: t.ink, fontSize: 12, fontWeight: 600, fontFamily: 'var(--font-body)', padding: 0, display: 'inline-flex', alignItems: 'center', gap: 4, alignSelf: 'flex-start', textDecoration: 'none' }}>
+                {c.cta} →
+              </a>
+            ) : (
+              <button style={{ background: 'none', border: 'none', color: c.locked ? 'var(--ink-mute)' : t.ink, fontSize: 12, fontWeight: 600, fontFamily: 'var(--font-body)', cursor: c.locked ? 'not-allowed' : 'pointer', padding: 0, display: 'inline-flex', alignItems: 'center', gap: 4, alignSelf: 'flex-start' }}>
+                {c.cta} →
+              </button>
+            )}
           </div>
         )
       })}
