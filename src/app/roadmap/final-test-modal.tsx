@@ -7,11 +7,12 @@ import { CertificateModal } from './certificate-modal'
 interface Props {
   onClose: () => void
   onPass: () => void
+  onCertIssued?: (cert: { certNumber: number; name: string; issuedAt: string }) => void
 }
 
 const NAME_RE = /^[A-Za-z\s-]+$/
 
-export function FinalTestModal({ onClose, onPass }: Props) {
+export function FinalTestModal({ onClose, onPass, onCertIssued }: Props) {
   const [currentQ, setCurrentQ] = useState(0)
   const [selected, setSelected] = useState<number | null>(null)
   const [score, setScore] = useState(0)
@@ -60,10 +61,18 @@ export function FinalTestModal({ onClose, onPass }: Props) {
     if (!NAME_RE.test(name)) { setNameError('Только латинские буквы, пробел и дефис'); return }
     setNameError('')
     setSaving(true)
-    const result = await issueCertificate(name)
-    setSaving(false)
-    if (result.error) { setNameError(result.error); return }
-    setCertData({ certNumber: result.certNumber!, name: result.name!, issuedAt: result.issuedAt! })
+    try {
+      const result = await issueCertificate(name)
+      if (result.error) { setNameError(result.error); return }
+      const cd = { certNumber: result.certNumber!, name: result.name!, issuedAt: result.issuedAt! }
+      setCertData(cd)
+      onCertIssued?.(cd)
+    } catch (e) {
+      setNameError('Произошла ошибка. Попробуйте ещё раз.')
+      console.error('[handleCertificate]', e)
+    } finally {
+      setSaving(false)
+    }
   }
 
   const passed = score >= 8

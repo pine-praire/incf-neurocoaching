@@ -13,6 +13,7 @@ import { HeroBlock } from './hero-block'
 import { TopBar, BonusGrid } from './roadmap-ui'
 import { FinalTestModal } from './final-test-modal'
 import { SixQuestionsModal } from './six-questions-modal'
+import { CertificateModal } from './certificate-modal'
 import { QUEST_LESSON_IDS } from '@/lib/quest-meta'
 
 const questLessonIds = new Set<string>(QUEST_LESSON_IDS)
@@ -389,9 +390,9 @@ function PathRoad({ completed }: { completed: Set<string> }) {
   )
 }
 
-function RoadmapStamp({ stamp, completed, nextId, isLocked, onOpen, onFinalTest, onSixQuestions, mapWidth }: {
+function RoadmapStamp({ stamp, completed, nextId, isLocked, onOpen, onFinalTest, onSixQuestions, onCertStamp, mapWidth }: {
   stamp: Stamp; completed: Set<string>; nextId: string | null
-  isLocked: (id: string) => boolean; onOpen: (lesson: OpenLesson) => void; onFinalTest?: () => void; onSixQuestions?: () => void
+  isLocked: (id: string) => boolean; onOpen: (lesson: OpenLesson) => void; onFinalTest?: () => void; onSixQuestions?: () => void; onCertStamp?: () => void
   mapWidth: number
 }) {
   const [hovered, setHovered] = useState(false)
@@ -443,7 +444,7 @@ function RoadmapStamp({ stamp, completed, nextId, isLocked, onOpen, onFinalTest,
 
   return (
     <button
-      onClick={() => { if (status === 'locked') return; if (id === 'test') { onFinalTest?.(); return; } if (id === 'six') { onSixQuestions?.(); return; } const l = getLessonForModal(); if (l) onOpen(l) }}
+      onClick={() => { if (status === 'locked') return; if (id === 'test') { onFinalTest?.(); return; } if (id === 'six') { onSixQuestions?.(); return; } if (id === 'cert') { onCertStamp?.(); return; } const l = getLessonForModal(); if (l) onOpen(l) }}
       onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}
       aria-label={`${label}, ${status === 'done' ? 'пройдено' : status === 'next' ? 'следующее' : status === 'locked' ? 'заблокировано' : 'доступно'}`}
       style={{
@@ -496,6 +497,8 @@ export default function RoadmapPage() {
   const [openLesson, setOpenLesson] = useState<OpenLesson | null>(null)
   const [showFinalTest, setShowFinalTest] = useState(false)
   const [showSixModal, setShowSixModal] = useState(false)
+  const [certData, setCertData] = useState<{ certNumber: number; name: string; issuedAt: string } | null>(null)
+  const [showCertModal, setShowCertModal] = useState(false)
   const [mapWidth, setMapWidth] = useState(0)
   const [loading, setLoading] = useState(true)
   const [userName, setUserName] = useState('')
@@ -523,11 +526,12 @@ export default function RoadmapPage() {
     }
 
     loadProgress()
-      .then(({ completed: c, answers: a, userName: n, streak: s }) => {
+      .then(({ completed: c, answers: a, userName: n, streak: s, certificate }) => {
         setCompleted(new Set(c))
         setAnswers(a)
         setUserName(n)
         setStreak(s)
+        if (certificate) setCertData(certificate)
       })
       .catch(() => {})
       .finally(() => setLoading(false))
@@ -609,7 +613,7 @@ userName={userName}
               <div ref={mapRef} style={{ position: 'relative', width: '100%', aspectRatio: `${W} / ${H}` }}>
                 <PathRoad completed={completed} />
                 {STAMPS.map(stamp => (
-                  <RoadmapStamp key={stamp.id} stamp={stamp} completed={completed} nextId={nextLesson?.id ?? null} isLocked={isLocked} onOpen={setOpenLesson} onFinalTest={() => setShowFinalTest(true)} onSixQuestions={() => setShowSixModal(true)} mapWidth={mapWidth} />
+                  <RoadmapStamp key={stamp.id} stamp={stamp} completed={completed} nextId={nextLesson?.id ?? null} isLocked={isLocked} onOpen={setOpenLesson} onFinalTest={() => setShowFinalTest(true)} onSixQuestions={() => setShowSixModal(true)} onCertStamp={() => { if (certData) { setShowCertModal(true) } else { setShowFinalTest(true) } }} mapWidth={mapWidth} />
                 ))}
                 {mapWidth > 0 && ANNOTATIONS.map(annotation => {
                   const stamp = STAMPS.find(s => s.id === annotation.stampId)
@@ -633,6 +637,16 @@ userName={userName}
         <FinalTestModal
           onClose={() => setShowFinalTest(false)}
           onPass={() => { markDone('test'); setShowFinalTest(false) }}
+          onCertIssued={(cd) => setCertData(cd)}
+        />
+      )}
+
+      {showCertModal && certData && (
+        <CertificateModal
+          certNumber={certData.certNumber}
+          name={certData.name}
+          issuedAt={certData.issuedAt}
+          onClose={() => setShowCertModal(false)}
         />
       )}
 

@@ -181,11 +181,12 @@ function computeStreak(createdAts: string[]): number {
 export async function loadProgress() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return { completed: [], answers: {}, userName: '', streak: 0 }
+  if (!user) return { completed: [], answers: {}, userName: '', streak: 0, certificate: null as null | { certNumber: number; name: string; issuedAt: string } }
 
-  const [{ data: progress }, { data: answers }] = await Promise.all([
+  const [{ data: progress }, { data: answers }, { data: cert }] = await Promise.all([
     supabase.from('progress').select('step_id, completed_at').eq('user_id', user.id),
     supabase.from('answers').select('lesson_id, text').eq('user_id', user.id),
+    supabase.from('certificates').select('cert_number, name, issued_at').eq('user_id', user.id).maybeSingle(),
   ])
 
   const userName = user.user_metadata?.name
@@ -201,5 +202,6 @@ export async function loadProgress() {
     answers: Object.fromEntries((answers ?? []).map(a => [a.lesson_id, a.text ?? ''])),
     userName,
     streak,
+    certificate: cert ? { certNumber: cert.cert_number, name: cert.name, issuedAt: cert.issued_at } : null,
   }
 }
