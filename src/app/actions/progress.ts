@@ -1,6 +1,7 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
+import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { LESSONS, FINALS, INTRO } from '@/lib/course-data'
 
 const VALID_STEP_IDS = new Set([
@@ -94,6 +95,51 @@ export async function saveCertificateName(name: string) {
 
   if (error) return { error: error.message }
   return { ok: true }
+}
+
+export async function issueCertificate(name: string): Promise<{
+  ok?: boolean; certNumber?: number; name?: string; issuedAt?: string; error?: string
+}> {
+  const trimmedName = name.trim()
+  if (!trimmedName) return { error: 'Введите имя' }
+  if (trimmedName.length > 200) return { error: 'Имя слишком длинное' }
+
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Not authenticated' }
+
+  const admin = createSupabaseAdminClient()
+
+  const { data: existing } = await admin
+    .from('certificates')
+    .select('cert_number, name, issued_at')
+    .eq('user_id', user.id)
+    .maybeSingle()
+
+  if (existing) {
+    return { ok: true, certNumber: existing.cert_number, name: existing.name, issuedAt: existing.issued_at }
+  }
+
+  const { data: cert, error } = await admin
+    .from('certificates')
+    .insert({ user_id: user.id, name: trimmedName })
+    .select('cert_number, name, issued_at')
+    .single()
+
+  if (error || !cert) return { error: error?.message ?? 'Не удалось создать сертификат' }
+
+  try {
+    const { generateCertificatePDF } = await import('@/lib/certificate-pdf')
+    const { sendCertificateEmail } = await import('@/lib/brevo')
+    const pdfBuffer = await generateCertificatePDF(cert.name, cert.cert_number, cert.issued_at)
+    if (user.email) {
+      await sendCertificateEmail(user.email, cert.name, cert.cert_number, cert.issued_at, pdfBuffer)
+    }
+  } catch (e) {
+    console.error('[issueCertificate] email/pdf failed:', e)
+  }
+
+  return { ok: true, certNumber: cert.cert_number, name: cert.name, issuedAt: cert.issued_at }
 }
 
 function computeStreak(createdAts: string[]): number {

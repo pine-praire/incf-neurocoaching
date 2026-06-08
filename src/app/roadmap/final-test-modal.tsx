@@ -1,7 +1,8 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { FINAL_TEST_QUESTIONS } from '@/lib/final-test-data'
-import { saveCertificateName } from '@/app/actions/progress'
+import { issueCertificate } from '@/app/actions/progress'
+import { CertificateModal } from './certificate-modal'
 
 interface Props {
   onClose: () => void
@@ -18,6 +19,7 @@ export function FinalTestModal({ onClose, onPass }: Props) {
   const [certName, setCertName] = useState('')
   const [nameError, setNameError] = useState('')
   const [saving, setSaving] = useState(false)
+  const [certData, setCertData] = useState<{ certNumber: number; name: string; issuedAt: string } | null>(null)
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
@@ -58,14 +60,16 @@ export function FinalTestModal({ onClose, onPass }: Props) {
     if (!NAME_RE.test(name)) { setNameError('Только латинские буквы, пробел и дефис'); return }
     setNameError('')
     setSaving(true)
-    await saveCertificateName(name)
+    const result = await issueCertificate(name)
     setSaving(false)
-    onPass()
+    if (result.error) { setNameError(result.error); return }
+    setCertData({ certNumber: result.certNumber!, name: result.name!, issuedAt: result.issuedAt! })
   }
 
   const passed = score >= 8
 
   return (
+    <>
     <div
       onClick={onClose}
       role="dialog"
@@ -190,7 +194,7 @@ export function FinalTestModal({ onClose, onPass }: Props) {
                     disabled={saving}
                     style={{ background: 'var(--terra-2)', color: '#fff', border: 'none', padding: '11px 20px', borderRadius: 10, fontWeight: 600, fontSize: 14, fontFamily: 'var(--font-body)', cursor: saving ? 'wait' : 'pointer', boxShadow: '0 6px 16px -6px rgba(180,80,50,.5)', opacity: saving ? 0.7 : 1 }}
                   >
-                    {saving ? 'Сохраняем...' : '🎓 Получить сертификат'}
+                    {saving ? 'Создаём сертификат...' : '🎓 Получить сертификат'}
                   </button>
                 </div>
               ) : (
@@ -214,5 +218,14 @@ export function FinalTestModal({ onClose, onPass }: Props) {
         </div>
       </div>
     </div>
+    {certData && (
+      <CertificateModal
+        certNumber={certData.certNumber}
+        name={certData.name}
+        issuedAt={certData.issuedAt}
+        onClose={() => { setCertData(null); onPass() }}
+      />
+    )}
+    </>
   )
 }
