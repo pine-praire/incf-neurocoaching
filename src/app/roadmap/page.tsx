@@ -150,10 +150,10 @@ function DiagnosticCard() {
 function lessonAnnotations(side: 'left' | 'right', lessonId: string): Annotation[] {
   const data = LESSON_ANNOTATIONS.find(d => d.lessonId === lessonId)
   if (!data) return []
+  const allItems = [...(data.hat ?? []), ...(data.bulb ?? []), ...(data.bubble ?? [])]
+  if (!allItems.length) return []
   return [
-    { id: `${lessonId}-hat`,    stampId: lessonId, preferredSide: side, type: 'hat',    compactIcon: '🎓', compactLabel: 'Где узнать подробнее', compactXOffset: 0,  items: data.hat,    itemIcon: '🎓', itemLabel: 'Где узнать подробнее', itemTone: 'terra' },
-    { id: `${lessonId}-bulb`,   stampId: lessonId, preferredSide: side, type: 'bulb',   compactIcon: '💡', compactLabel: 'Интересный факт',       compactXOffset: 44, items: data.bulb,   itemIcon: '💡', itemLabel: 'Интересный факт',       itemTone: 'gold' },
-    { id: `${lessonId}-bubble`, stampId: lessonId, preferredSide: side, type: 'bubble', compactIcon: '💬', compactLabel: 'Рекомендация',           compactXOffset: 88, items: data.bubble, itemIcon: '💬', itemLabel: 'Рекомендация',           itemTone: 'sage' },
+    { id: `${lessonId}-hint`, stampId: lessonId, preferredSide: side, type: 'hat', compactIcon: '💡', compactLabel: 'Подсказка', compactXOffset: 0, items: allItems, itemIcon: '💡', itemLabel: 'Подсказка', itemTone: 'gold' },
   ]
 }
 
@@ -187,9 +187,17 @@ function ItemCard({ icon, label, text, tone }: { icon: string; label: string; te
   )
 }
 
+const ROTATING_ICONS = ['🎓', '💡', '💬']
+
 function AnnotationCard({ annotation, stamp, mapWidth, isCompact }: { annotation: Annotation; stamp: Stamp; mapWidth: number; isCompact: boolean }) {
   const [popoverOpen, setPopoverOpen] = useState(false)
   const [selectedText, setSelectedText] = useState('')
+  const [iconIndex, setIconIndex] = useState(0)
+  useEffect(() => {
+    if (popoverOpen) return
+    const id = setInterval(() => setIconIndex(i => (i + 1) % ROTATING_ICONS.length), 2000)
+    return () => clearInterval(id)
+  }, [popoverOpen])
   const markerX = (stamp.x / W) * mapWidth
   const topPct = (stamp.y / H) * 100
 
@@ -219,7 +227,7 @@ function AnnotationCard({ annotation, stamp, mapWidth, isCompact }: { annotation
       <div style={{ position: 'absolute', left: iconLeft, top: `calc(${topPct}% - 20px)`, zIndex: 5 }}>
         <button onClick={openPopover} aria-label={annotation.compactLabel}
           style={{ width: 40, height: 40, borderRadius: 999, background: 'var(--surface)', border: '2px solid var(--line)', boxShadow: 'var(--shadow-md)', display: 'grid', placeItems: 'center', cursor: 'pointer', fontSize: 20, transition: 'transform .15s' }}>
-          {annotation.compactIcon}
+          {annotation.items ? ROTATING_ICONS[iconIndex] : annotation.compactIcon}
         </button>
         {popoverOpen && (
           <div onClick={e => e.stopPropagation()}
