@@ -164,7 +164,7 @@ function CertificateDoc({ name, certNumber, issuedAt }: {
           <View style={s.badge}>
             <Text style={s.badgeText}>i</Text>
           </View>
-          <Text style={s.org}>International Neurological Coaching Federation</Text>
+          <Text style={s.org}>International Neuro Coaching Federation</Text>
           <View style={s.dividerTop} />
         </View>
 
@@ -175,7 +175,7 @@ function CertificateDoc({ name, certNumber, issuedAt }: {
         <Text style={s.name}>{name}</Text>
         <Text style={s.body}>has successfully completed the online course</Text>
         <Text style={s.courseLine}>Introduction to Neurocoaching</Text>
-        <Text style={s.courseOrg}>INCF — International Neurological Coaching Federation</Text>
+        <Text style={s.courseOrg}>INCF — International Neuro Coaching Federation</Text>
 
         <View style={s.divider} />
 

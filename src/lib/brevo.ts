@@ -119,7 +119,7 @@ export async function sendCertificateEmail(
         <!-- Footer -->
         <tr><td style="background:#f5f3f0;padding:20px 40px;border-top:1px solid #e8e4de;">
           <p style="margin:0;font-size:12px;color:#aaa;text-align:center;line-height:1.6;">
-            INCF — International Neurological Coaching Federation<br>
+            INCF — International Neuro Coaching Federation<br>
             <a href="https://incf.eu" style="color:#aaa;">incf.eu</a>
           </p>
         </td></tr>
