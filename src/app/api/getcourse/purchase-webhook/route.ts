@@ -9,6 +9,27 @@ export const runtime = "nodejs"
 
 class WebhookValidationError extends Error {}
 
+// When createUser fails with "already registered" it means the auth user was
+// created by a previous webhook run that then failed on the profiles upsert.
+// The JS SDK has no getUserByEmail — we hit the GoTrue admin REST API directly.
+async function lookupAuthUserByEmail(email: string): Promise<string | null> {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+  if (!supabaseUrl || !serviceKey) return null
+  try {
+    const res = await fetch(
+      `${supabaseUrl}/auth/v1/admin/users?filter=${encodeURIComponent(email)}&per_page=10`,
+      { headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}` } }
+    )
+    if (!res.ok) return null
+    const body = await res.json()
+    const users = body.users as Array<{ id: string; email: string }> | undefined
+    return users?.find(u => u.email === email)?.id ?? null
+  } catch {
+    return null
+  }
+}
+
 function normalizeEmail(email: string) {
   return email.trim().toLowerCase()
 }
@@ -107,7 +128,7 @@ export async function POST(request: Request) {
     if (existingProfile) {
       userId = existingProfile.id
     } else {
-      const { data, error } = await supabase.auth.admin.createUser({
+      const { data: createData, error: createError } = await supabase.auth.admin.createUser({
         email,
         password: generateTempPassword(),
         email_confirm: true,
@@ -118,13 +139,21 @@ export async function POST(request: Request) {
           name: payload.first_name ? `${payload.first_name} ${payload.last_name ?? ""}`.trim() : email.split("@")[0],
         },
       })
-      if (error) throw error
-      if (!data.user) throw new Error("User was not created")
-      userId = data.user.id
+
+      if (!createError) {
+        if (!createData.user) throw new Error("User was not created")
+        userId = createData.user.id
+      } else {
+        // Auth user may already exist from a prior run that failed after createUser
+        // but before the profiles upsert completed. Look them up via GoTrue REST API.
+        const existingAuthId = await lookupAuthUserByEmail(email)
+        if (!existingAuthId) throw createError
+        userId = existingAuthId
+      }
     }
 
     // Upsert profile
-    await supabase.from("profiles").upsert({
+    const { error: profileErr } = await supabase.from("profiles").upsert({
       id: userId,
       email,
       getcourse_user_id: payload.getcourse_user_id,
@@ -133,9 +162,10 @@ export async function POST(request: Request) {
       phone: payload.phone,
       updated_at: new Date().toISOString(),
     }, { onConflict: "id" })
+    if (profileErr) throw profileErr
 
     // Upsert order
-    await supabase.from("getcourse_orders").upsert({
+    const { error: orderErr } = await supabase.from("getcourse_orders").upsert({
       getcourse_order_id: payload.order_id,
       getcourse_user_id: payload.getcourse_user_id,
       email,
@@ -146,15 +176,17 @@ export async function POST(request: Request) {
       paid_at: payload.paid_at ?? new Date().toISOString(),
       raw_payload: payload,
     }, { onConflict: "getcourse_order_id" })
+    if (orderErr) throw orderErr
 
     // Upsert enrollment
-    await supabase.from("enrollments").upsert({
+    const { error: enrollErr } = await supabase.from("enrollments").upsert({
       user_id: userId,
       course_id: courseId,
       getcourse_order_id: payload.order_id,
       status: "active",
       starts_at: new Date().toISOString(),
     }, { onConflict: "user_id,course_id" })
+    if (enrollErr) throw enrollErr
 
     if (eventLog?.id) {
       await supabase.from("webhook_events").update({
