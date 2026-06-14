@@ -27,6 +27,7 @@ export function SixQuestionsModal({ initialAnswers, alreadyDone, onClose, onSave
   )
   const [errors, setErrors] = useState<boolean[]>(new Array(6).fill(false))
   const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState(false)
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
@@ -40,10 +41,16 @@ export function SixQuestionsModal({ initialAnswers, alreadyDone, onClose, onSave
     if (newErrors.some(Boolean)) return
 
     setSaving(true)
-    const answersMap = Object.fromEntries(SIX_ANSWER_KEYS.map((k, i) => [k, values[i]]))
-    await onSave(answersMap)
-    setSaving(false)
-    onPass()
+    setSaveError(false)
+    try {
+      const answersMap = Object.fromEntries(SIX_ANSWER_KEYS.map((k, i) => [k, values[i]]))
+      await onSave(answersMap)
+      onPass()
+    } catch {
+      setSaveError(true)
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (
@@ -114,6 +121,12 @@ export function SixQuestionsModal({ initialAnswers, alreadyDone, onClose, onSave
               )}
             </div>
           ))}
+
+          {saveError && (
+            <div style={{ background: 'oklch(0.95 0.06 20)', border: '1px solid oklch(0.7 0.15 20)', borderRadius: 8, padding: '10px 14px', fontSize: 13, color: 'oklch(0.35 0.15 20)', fontWeight: 500 }}>
+              ⚠ Не удалось сохранить ответы. Попробуйте ещё раз.
+            </div>
+          )}
 
           <div style={{ display: 'flex', gap: 10, alignItems: 'center', paddingTop: 4 }}>
             {!alreadyDone ? (

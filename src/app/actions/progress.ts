@@ -118,7 +118,7 @@ export async function saveSixAnswers(answersMap: Record<string, string>) {
 }
 
 export async function issueCertificate(name: string): Promise<{
-  ok?: boolean; certNumber?: number; name?: string; issuedAt?: string; error?: string
+  ok?: boolean; certNumber?: number; name?: string; issuedAt?: string; emailSent?: boolean; error?: string
 }> {
   const trimmedName = name.trim()
   if (!trimmedName) return { error: 'Введите имя' }
@@ -148,18 +148,20 @@ export async function issueCertificate(name: string): Promise<{
 
   if (error || !cert) return { error: error?.message ?? 'Не удалось создать сертификат' }
 
+  let emailSent = false
   try {
     const { generateCertificatePDF } = await import('@/lib/certificate-pdf')
     const { sendCertificateEmail } = await import('@/lib/brevo')
     const pdfBuffer = await generateCertificatePDF(cert.name, cert.cert_number, cert.issued_at)
     if (user.email) {
       await sendCertificateEmail(user.email, cert.name, cert.cert_number, cert.issued_at, pdfBuffer)
+      emailSent = true
     }
   } catch (e) {
     console.error('[issueCertificate] email/pdf failed:', e)
   }
 
-  return { ok: true, certNumber: cert.cert_number, name: cert.name, issuedAt: cert.issued_at }
+  return { ok: true, certNumber: cert.cert_number, name: cert.name, issuedAt: cert.issued_at, emailSent }
 }
 
 function computeStreak(createdAts: string[]): number {

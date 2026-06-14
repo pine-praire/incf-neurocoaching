@@ -4,10 +4,11 @@ interface Props {
   certNumber: number
   name: string
   issuedAt: string
+  emailSent?: boolean
   onClose: () => void
 }
 
-export function CertificateModal({ certNumber, name, issuedAt, onClose }: Props) {
+export function CertificateModal({ certNumber, name, issuedAt, emailSent, onClose }: Props) {
   const date = new Date(issuedAt).toLocaleDateString('ru-RU', { day: '2-digit', month: 'long', year: 'numeric' })
 
   return (
@@ -50,9 +51,15 @@ export function CertificateModal({ certNumber, name, issuedAt, onClose }: Props)
             <div style={{ fontSize: 12, color: 'var(--ink-mute)', marginTop: 4 }}>{date}</div>
           </div>
 
-          <p style={{ margin: '0 0 20px', fontSize: 13, color: 'var(--ink-soft)', lineHeight: 1.6 }}>
-            Копия в формате PDF отправлена на вашу почту.
-          </p>
+          {emailSent === false ? (
+            <p style={{ margin: '0 0 20px', fontSize: 13, color: 'oklch(0.45 0.12 40)', lineHeight: 1.6 }}>
+              ⚠ Не удалось отправить PDF на почту. Скачайте сертификат по кнопке ниже.
+            </p>
+          ) : (
+            <p style={{ margin: '0 0 20px', fontSize: 13, color: 'var(--ink-soft)', lineHeight: 1.6 }}>
+              Копия в формате PDF отправлена на вашу почту.
+            </p>
+          )}
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             <a

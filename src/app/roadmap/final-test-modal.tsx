@@ -20,7 +20,7 @@ export function FinalTestModal({ onClose, onPass, onCertIssued }: Props) {
   const [certName, setCertName] = useState('')
   const [nameError, setNameError] = useState('')
   const [saving, setSaving] = useState(false)
-  const [certData, setCertData] = useState<{ certNumber: number; name: string; issuedAt: string } | null>(null)
+  const [certData, setCertData] = useState<{ certNumber: number; name: string; issuedAt: string; emailSent: boolean } | null>(null)
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
@@ -66,7 +66,7 @@ export function FinalTestModal({ onClose, onPass, onCertIssued }: Props) {
     try {
       const result = await issueCertificate(name)
       if (result.error) { setNameError(result.error); return }
-      const cd = { certNumber: result.certNumber!, name: result.name!, issuedAt: result.issuedAt! }
+      const cd = { certNumber: result.certNumber!, name: result.name!, issuedAt: result.issuedAt!, emailSent: result.emailSent ?? false }
       setCertData(cd)
       onCertIssued?.(cd)
     } catch (e) {
@@ -236,6 +236,7 @@ export function FinalTestModal({ onClose, onPass, onCertIssued }: Props) {
         certNumber={certData.certNumber}
         name={certData.name}
         issuedAt={certData.issuedAt}
+        emailSent={certData.emailSent}
         onClose={() => { setCertData(null); onPass() }}
       />
     )}

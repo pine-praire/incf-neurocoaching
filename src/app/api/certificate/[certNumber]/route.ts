@@ -27,7 +27,13 @@ export async function GET(
     return NextResponse.json({ error: 'Not found' }, { status: 404 })
   }
 
-  const pdf = await generateCertificatePDF(cert.name, cert.cert_number, cert.issued_at)
+  let pdf: Buffer
+  try {
+    pdf = await generateCertificatePDF(cert.name, cert.cert_number, cert.issued_at)
+  } catch (e) {
+    console.error('[certificate] PDF generation failed:', e)
+    return NextResponse.json({ error: 'Failed to generate PDF' }, { status: 500 })
+  }
 
   return new Response(new Uint8Array(pdf), {
     headers: {
