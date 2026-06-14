@@ -2,29 +2,20 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 vi.mock('@/lib/supabase/admin', () => ({ createSupabaseAdminClient: vi.fn() }))
-vi.mock('@/lib/brevo', () => ({ sendMagicLinkEmail: vi.fn() }))
+vi.mock('@/lib/auth-utils', () => ({ generateTempPassword: vi.fn(() => 'Test-Pass-1234') }))
 
 import { POST } from '@/app/api/getcourse/purchase-webhook/route'
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
-import { sendMagicLinkEmail } from '@/lib/brevo'
+import { generateTempPassword } from '@/lib/auth-utils'
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
 const SECRET = 'test-webhook-secret'
 const VALID_OFFER_ID = '5410171'
 const VALID_PRODUCT_ID = '829285153'
-const MAGIC_LINK = 'https://platform.incf.eu/auth/callback?token=abc123'
 
 // ── Mock factories ────────────────────────────────────────────────────────────
 
-// Returns the Supabase `from()` mock pre-loaded for the happy path (new user).
-// Call sequence matches purchase-webhook.ts exactly:
-//   1. webhook_events  → insert → select → single
-//   2. profiles        → select → eq → maybeSingle  (null = not found)
-//   3. profiles        → upsert
-//   4. getcourse_orders → upsert
-//   5. enrollments     → upsert
-//   6. webhook_events  → update → eq
 function buildHappyFromMock({ profileExists = false } = {}) {
   const m = vi.fn()
 
@@ -37,10 +28,10 @@ function buildHappyFromMock({ profileExists = false } = {}) {
     }),
   })
 
-  // 2. webhook_events idempotency check (select → eq → is → not → maybeSingle)
+  // 2. webhook_events idempotency check
   const idem: Record<string, ReturnType<typeof vi.fn>> = {
     select: vi.fn(), eq: vi.fn(), is: vi.fn(), not: vi.fn(),
-    maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }), // not a duplicate
+    maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
   }
   idem.select = vi.fn().mockReturnValue(idem)
   idem.eq    = vi.fn().mockReturnValue(idem)
@@ -80,8 +71,6 @@ function buildHappyFromMock({ profileExists = false } = {}) {
   return m
 }
 
-// Minimal mock for failure paths (fields validated inside try, event log always written).
-// Sequence: insert (event log) → update (save error).
 function buildFailFromMock() {
   const m = vi.fn()
   m.mockReturnValueOnce({
@@ -106,10 +95,6 @@ function makeMockClient({ profileExists = false } = {}) {
       admin: {
         createUser: vi.fn().mockResolvedValue({
           data: { user: { id: 'user-new' } },
-          error: null,
-        }),
-        generateLink: vi.fn().mockResolvedValue({
-          data: { properties: { action_link: MAGIC_LINK } },
           error: null,
         }),
       },
@@ -143,7 +128,7 @@ beforeEach(() => {
   vi.clearAllMocks()
   process.env.GETCOURSE_WEBHOOK_SECRET = SECRET
   process.env.NEXT_PUBLIC_SITE_URL = 'https://platform.incf.eu'
-  vi.mocked(sendMagicLinkEmail).mockResolvedValue(undefined)
+  vi.mocked(generateTempPassword).mockReturnValue('Test-Pass-1234')
 })
 
 // ── Auth / Config ─────────────────────────────────────────────────────────────
@@ -219,12 +204,11 @@ describe('payload validation', () => {
 // ── Happy path ────────────────────────────────────────────────────────────────
 
 describe('happy path — new user', () => {
-  it('creates user, sends email, returns { ok: true } across 50 runs', async () => {
+  it('creates user with password, returns { ok: true } across 50 runs', async () => {
     for (let run = 0; run < 50; run++) {
       vi.mocked(createSupabaseAdminClient).mockReturnValue(
         makeMockClient({ profileExists: false }) as unknown as ReturnType<typeof createSupabaseAdminClient>
       )
-      vi.mocked(sendMagicLinkEmail).mockResolvedValue(undefined)
 
       const res = await POST(
         makeRequest(
@@ -235,17 +219,13 @@ describe('happy path — new user', () => {
 
       expect(res.status, `run ${run}`).toBe(200)
       expect(await res.json(), `run ${run}`).toEqual({ ok: true })
-      expect(sendMagicLinkEmail, `run ${run}`).toHaveBeenCalledWith(
-        'student@example.com',
-        MAGIC_LINK
-      )
 
       vi.clearAllMocks()
-      vi.mocked(sendMagicLinkEmail).mockResolvedValue(undefined)
+      vi.mocked(generateTempPassword).mockReturnValue('Test-Pass-1234')
     }
   })
 
-  it('calls createUser when profile does not exist', async () => {
+  it('calls createUser with a password when profile does not exist', async () => {
     const client = makeMockClient({ profileExists: false })
     vi.mocked(createSupabaseAdminClient).mockReturnValue(
       client as unknown as ReturnType<typeof createSupabaseAdminClient>
@@ -254,6 +234,9 @@ describe('happy path — new user', () => {
     await POST(makeRequest(validBody(), { 'x-getcourse-secret': SECRET }))
 
     expect(client.auth.admin.createUser).toHaveBeenCalledOnce()
+    expect(client.auth.admin.createUser).toHaveBeenCalledWith(
+      expect.objectContaining({ password: 'Test-Pass-1234' })
+    )
   })
 
   it('skips createUser when profile already exists', async () => {
@@ -272,7 +255,6 @@ describe('happy path — new user', () => {
       vi.mocked(createSupabaseAdminClient).mockReturnValue(
         makeMockClient({ profileExists: true }) as unknown as ReturnType<typeof createSupabaseAdminClient>
       )
-      vi.mocked(sendMagicLinkEmail).mockResolvedValue(undefined)
 
       const res = await POST(
         makeRequest(validBody({ order_id: `ord-ex-${run}` }), { 'x-getcourse-secret': SECRET })
@@ -282,114 +264,65 @@ describe('happy path — new user', () => {
       expect(await res.json(), `run ${run}`).toEqual({ ok: true })
 
       vi.clearAllMocks()
-      vi.mocked(sendMagicLinkEmail).mockResolvedValue(undefined)
+      vi.mocked(generateTempPassword).mockReturnValue('Test-Pass-1234')
     }
   })
 })
 
-// ── Magic link destination ────────────────────────────────────────────────────
+// ── Password generation ───────────────────────────────────────────────────────
 
-describe('magic link destination', () => {
-  it('generateLink is called with redirectTo pointing to /auth/callback', async () => {
-    const client = makeMockClient()
+describe('password generation', () => {
+  it('generateTempPassword is called for each new user', async () => {
+    const client = makeMockClient({ profileExists: false })
     vi.mocked(createSupabaseAdminClient).mockReturnValue(
       client as unknown as ReturnType<typeof createSupabaseAdminClient>
     )
 
     await POST(makeRequest(validBody(), { 'x-getcourse-secret': SECRET }))
 
-    expect(client.auth.admin.generateLink).toHaveBeenCalledWith(
-      expect.objectContaining({
-        type: 'magiclink',
-        options: expect.objectContaining({
-          redirectTo: expect.stringContaining('/auth/callback'),
-        }),
-      })
-    )
+    expect(generateTempPassword).toHaveBeenCalledOnce()
   })
 
-  it('generateLink redirectTo never points directly to /roadmap — always via /auth/callback', async () => {
-    const client = makeMockClient()
+  it('generateTempPassword is NOT called when profile already exists', async () => {
+    const client = makeMockClient({ profileExists: true })
     vi.mocked(createSupabaseAdminClient).mockReturnValue(
       client as unknown as ReturnType<typeof createSupabaseAdminClient>
     )
 
     await POST(makeRequest(validBody(), { 'x-getcourse-secret': SECRET }))
 
-    const call = client.auth.admin.generateLink.mock.calls[0][0] as { options?: { redirectTo?: string } }
-    const redirectTo = call.options?.redirectTo ?? ''
-    expect(redirectTo).not.toContain('/roadmap')
-    expect(redirectTo).toContain('/auth/callback')
-  })
-
-  it('magic link is sent to the correct email', async () => {
-    const client = makeMockClient()
-    vi.mocked(createSupabaseAdminClient).mockReturnValue(
-      client as unknown as ReturnType<typeof createSupabaseAdminClient>
-    )
-    vi.mocked(sendMagicLinkEmail).mockResolvedValue(undefined)
-
-    await POST(makeRequest(validBody({ email: 'student@example.com' }), { 'x-getcourse-secret': SECRET }))
-
-    expect(client.auth.admin.generateLink).toHaveBeenCalledWith(
-      expect.objectContaining({ email: 'student@example.com' })
-    )
-    expect(sendMagicLinkEmail).toHaveBeenCalledWith('student@example.com', MAGIC_LINK)
+    expect(generateTempPassword).not.toHaveBeenCalled()
   })
 })
 
 // ── Security ─────────────────────────────────────────────────────────────────
 
 describe('security — response body', () => {
-  it('never exposes the magic link in the response body across 50 runs', async () => {
+  it('never exposes the password in the response body across 50 runs', async () => {
     for (let run = 0; run < 50; run++) {
       vi.mocked(createSupabaseAdminClient).mockReturnValue(
         makeMockClient() as unknown as ReturnType<typeof createSupabaseAdminClient>
       )
-      vi.mocked(sendMagicLinkEmail).mockResolvedValue(undefined)
 
       const res = await POST(
         makeRequest(validBody({ order_id: `ord-sec-${run}` }), { 'x-getcourse-secret': SECRET })
       )
 
       const text = await res.text()
-      expect(text, `run ${run} must not contain token`).not.toContain('token=')
-      expect(text, `run ${run} must not contain callback`).not.toContain('/auth/callback')
+      expect(text, `run ${run} must not contain password`).not.toContain('Test-Pass-1234')
       expect(text, `run ${run} must be { ok: true }`).toContain('"ok":true')
 
       vi.clearAllMocks()
-      vi.mocked(sendMagicLinkEmail).mockResolvedValue(undefined)
+      vi.mocked(generateTempPassword).mockReturnValue('Test-Pass-1234')
     }
   })
 
-  it('response Content-Type is application/json, not text/plain', async () => {
+  it('response Content-Type is application/json', async () => {
     vi.mocked(createSupabaseAdminClient).mockReturnValue(
       makeMockClient() as unknown as ReturnType<typeof createSupabaseAdminClient>
     )
     const res = await POST(makeRequest(validBody(), { 'x-getcourse-secret': SECRET }))
     expect(res.headers.get('content-type')).toContain('application/json')
-  })
-})
-
-// ── Resilience ────────────────────────────────────────────────────────────────
-
-describe('email send failure resilience', () => {
-  it('still returns { ok: true } when Brevo throws across 50 runs', async () => {
-    for (let run = 0; run < 50; run++) {
-      vi.mocked(createSupabaseAdminClient).mockReturnValue(
-        makeMockClient() as unknown as ReturnType<typeof createSupabaseAdminClient>
-      )
-      vi.mocked(sendMagicLinkEmail).mockRejectedValue(new Error(`Brevo timeout run ${run}`))
-
-      const res = await POST(
-        makeRequest(validBody({ order_id: `ord-err-${run}` }), { 'x-getcourse-secret': SECRET })
-      )
-
-      expect(res.status, `run ${run}`).toBe(200)
-      expect(await res.json(), `run ${run}`).toEqual({ ok: true })
-
-      vi.clearAllMocks()
-    }
   })
 })
 
@@ -408,21 +341,6 @@ describe('product_id routing (no offer_id)', () => {
     )
     expect(res.status).toBe(200)
     expect(await res.json()).toEqual({ ok: true })
-  })
-
-  it('sends magic link when only product_id is present', async () => {
-    vi.mocked(createSupabaseAdminClient).mockReturnValue(
-      makeMockClient() as unknown as ReturnType<typeof createSupabaseAdminClient>
-    )
-    vi.mocked(sendMagicLinkEmail).mockResolvedValue(undefined)
-
-    await POST(
-      makeRequest(
-        validBody({ offer_id: undefined, product_id: VALID_PRODUCT_ID }),
-        { 'x-getcourse-secret': SECRET }
-      )
-    )
-    expect(sendMagicLinkEmail).toHaveBeenCalledWith('student@example.com', MAGIC_LINK)
   })
 
   it('returns 400 for unknown product_id when offer_id is absent', async () => {
@@ -495,7 +413,6 @@ describe('product_id routing (no offer_id)', () => {
       vi.mocked(createSupabaseAdminClient).mockReturnValue(
         makeMockClient() as unknown as ReturnType<typeof createSupabaseAdminClient>
       )
-      vi.mocked(sendMagicLinkEmail).mockResolvedValue(undefined)
 
       const res = await POST(
         makeRequest(
@@ -507,7 +424,7 @@ describe('product_id routing (no offer_id)', () => {
       expect(await res.json(), `run ${run}`).toEqual({ ok: true })
 
       vi.clearAllMocks()
-      vi.mocked(sendMagicLinkEmail).mockResolvedValue(undefined)
+      vi.mocked(generateTempPassword).mockReturnValue('Test-Pass-1234')
     }
   })
 })

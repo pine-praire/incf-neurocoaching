@@ -9,14 +9,13 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 vi.mock('@/lib/supabase/admin', () => ({ createSupabaseAdminClient: vi.fn() }))
-vi.mock('@/lib/brevo', () => ({ sendMagicLinkEmail: vi.fn() }))
+vi.mock('@/lib/auth-utils', () => ({ generateTempPassword: vi.fn(() => 'Test-Pass-1234') }))
 
 import { POST } from '@/app/api/getcourse/purchase-webhook/route'
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 
 const SECRET = 'test-webhook-secret'
 
-// Minimal mock — only needs: insert (event log) then any subsequent calls
 function buildMinimalFromMock() {
   const insertMock = vi.fn().mockReturnValue({
     select: vi.fn().mockReturnValue({
@@ -61,7 +60,6 @@ beforeEach(() => {
 })
 
 // ── Silent failure: wrong secret ──────────────────────────────────────────────
-// GetCourse sends a request but the secret doesn't match → 401, nothing logged.
 
 describe('silent failure: secret mismatch (nothing logged)', () => {
   it('returns 401 and does NOT call supabase when secret is wrong', async () => {
@@ -76,16 +74,13 @@ describe('silent failure: secret mismatch (nothing logged)', () => {
   })
 
   it('secret with trailing newline: HTTP trims header → auth PASSES (not 401)', async () => {
-    // HTTP spec trims header values → \n is stripped before comparison.
-    // This means GetCourse secrets with trailing newlines still work.
-    // Root cause of "nothing logged" is always a genuinely different secret value.
     const client = buildMinimalFromMock()
     vi.mocked(createSupabaseAdminClient).mockReturnValue(
       client as unknown as ReturnType<typeof createSupabaseAdminClient>
     )
     const req = makeFormRequest(validFormBody(), { 'x-getcourse-secret': `${SECRET}\n` })
     const res = await POST(req)
-    expect(res.status).not.toBe(401) // auth passed due to HTTP header trimming
+    expect(res.status).not.toBe(401)
     expect(client.from).toHaveBeenCalled()
   })
 
@@ -96,7 +91,7 @@ describe('silent failure: secret mismatch (nothing logged)', () => {
     )
     const req = makeFormRequest(validFormBody(), { 'x-getcourse-secret': ` ${SECRET} ` })
     const res = await POST(req)
-    expect(res.status).not.toBe(401) // auth passed due to HTTP header trimming
+    expect(res.status).not.toBe(401)
     expect(client.from).toHaveBeenCalled()
   })
 
@@ -128,7 +123,6 @@ describe('silent failure: secret mismatch (nothing logged)', () => {
 })
 
 // ── Silent failure: malformed body ────────────────────────────────────────────
-// Parsing fails before the INSERT → 400, nothing logged.
 
 describe('silent failure: malformed body (nothing logged)', () => {
   it('returns 400 and does NOT log when JSON body is malformed', async () => {
@@ -151,7 +145,6 @@ describe('silent failure: malformed body (nothing logged)', () => {
 })
 
 // ── Logged failures: valid secret + valid body ────────────────────────────────
-// These DO reach the INSERT — so an entry exists in webhook_events with error.
 
 describe('logged failure: valid secret, valid body, bad payload data', () => {
   it('logs to webhook_events even when email is missing', async () => {
@@ -177,11 +170,10 @@ describe('logged failure: valid secret, valid body, bad payload data', () => {
   })
 })
 
-// ── Diagnostic: what the absence of a log means ──────────────────────────────
+// ── Diagnostic summary ────────────────────────────────────────────────────────
 
 describe('diagnostic summary', () => {
   it('no webhook_events entry = 401 (secret mismatch) or 400 (malformed body)', async () => {
-    // Wrong secret
     const client1 = buildMinimalFromMock()
     vi.mocked(createSupabaseAdminClient).mockReturnValue(
       client1 as unknown as ReturnType<typeof createSupabaseAdminClient>
@@ -192,7 +184,6 @@ describe('diagnostic summary', () => {
 
     vi.clearAllMocks()
 
-    // Malformed JSON
     const client2 = buildMinimalFromMock()
     vi.mocked(createSupabaseAdminClient).mockReturnValue(
       client2 as unknown as ReturnType<typeof createSupabaseAdminClient>

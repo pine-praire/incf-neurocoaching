@@ -3,7 +3,7 @@ import { NextResponse } from "next/server"
 import { createSupabaseAdminClient } from "@/lib/supabase/admin"
 import type { GetCoursePurchasePayload } from "@/lib/getcourse/types"
 import { getCourseIdByOfferId, getCourseIdByProductId } from "@/lib/getcourse/access-map"
-import { sendMagicLinkEmail } from "@/lib/brevo"
+import { generateTempPassword } from "@/lib/auth-utils"
 
 export const runtime = "nodejs"
 
@@ -109,6 +109,7 @@ export async function POST(request: Request) {
     } else {
       const { data, error } = await supabase.auth.admin.createUser({
         email,
+        password: generateTempPassword(),
         email_confirm: true,
         user_metadata: {
           getcourse_user_id: payload.getcourse_user_id,
@@ -154,31 +155,6 @@ export async function POST(request: Request) {
       status: "active",
       starts_at: new Date().toISOString(),
     }, { onConflict: "user_id,course_id" })
-
-    // Отправить magic link через generateLink (серверный метод)
-    let magicLink = ''
-    try {
-      const { data: linkData, error: linkError } = await supabase.auth.admin.generateLink({
-        type: "magiclink",
-        email,
-        options: {
-          redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/auth/callback`,
-        },
-      })
-      if (linkError) throw linkError
-      magicLink = linkData?.properties?.action_link ?? ''
-    } catch (linkErr) {
-      console.error('generateLink failed:', linkErr)
-    }
-
-    if (magicLink) {
-      try {
-        await sendMagicLinkEmail(email, magicLink)
-      } catch (emailError) {
-        // Логируем, но не роняем вебхук — GetCourse не должен получать 500
-        console.error('Failed to send magic link email:', emailError)
-      }
-    }
 
     if (eventLog?.id) {
       await supabase.from("webhook_events").update({

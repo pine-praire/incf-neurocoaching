@@ -1,35 +1,59 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { createClient } from '@/lib/supabase/client'
 
 const NOT_REGISTERED_MSG =
   'Этот адрес не зарегистрирован. Проверьте, через какой адрес вы покупали курс «Введение в нейрокоучинг».'
+const WRONG_PASSWORD_MSG =
+  'Неверный email или пароль. Попробуйте ещё раз или воспользуйтесь восстановлением доступа.'
 
 export default function LoginPage() {
+  const router = useRouter()
   const [email, setEmail] = useState('')
-  const [sent, setSent] = useState(false)
+  const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const handleMagicLink = async (e: React.FormEvent) => {
+  const [forgotMode, setForgotMode] = useState(false)
+  const [forgotSent, setForgotSent] = useState(false)
+  const [forgotLoading, setForgotLoading] = useState(false)
+
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
     setError(null)
-    const res = await fetch('/api/auth/resend-magic-link', {
+
+    const supabase = createClient()
+    const { error: signInError } = await supabase.auth.signInWithPassword({ email, password })
+
+    if (signInError) {
+      const msg = signInError.message.toLowerCase()
+      if (msg.includes('invalid') || msg.includes('wrong') || msg.includes('credentials')) {
+        setError(WRONG_PASSWORD_MSG)
+      } else if (msg.includes('not found') || msg.includes('no user')) {
+        setError(NOT_REGISTERED_MSG)
+      } else {
+        setError(WRONG_PASSWORD_MSG)
+      }
+      setLoading(false)
+      return
+    }
+
+    router.push('/roadmap')
+  }
+
+  const handleForgot = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setForgotLoading(true)
+    await fetch('/api/auth/forgot-password', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email }),
     })
-    if (!res.ok) {
-      const data = await res.json().catch(() => ({}))
-      setError(data.error === 'not_registered'
-        ? NOT_REGISTERED_MSG
-        : 'Ошибка отправки. Попробуйте ещё раз.')
-      setLoading(false)
-      return
-    }
-    setSent(true)
-    setLoading(false)
+    setForgotSent(true)
+    setForgotLoading(false)
   }
 
   return (
@@ -61,31 +85,61 @@ export default function LoginPage() {
           </p>
         </div>
 
-        {sent ? (
-          <div style={{
-            padding: '20px 16px', background: 'var(--sage-tint)',
-            border: '1px solid var(--sage-soft)', borderRadius: 12, textAlign: 'center',
-          }}>
-            <div style={{ fontSize: 32, marginBottom: 10 }}>📬</div>
-            <p style={{ fontSize: 14, color: 'var(--ink)', fontWeight: 600, margin: '0 0 6px' }}>
-              Проверьте почту
-            </p>
-            <p style={{ fontSize: 13, color: 'var(--ink-soft)', margin: 0 }}>
-              Мы отправили ссылку для входа на {email}
-            </p>
-          </div>
+        {forgotMode ? (
+          forgotSent ? (
+            <div style={{
+              padding: '20px 16px', background: 'var(--sage-tint)',
+              border: '1px solid var(--sage-soft)', borderRadius: 12, textAlign: 'center',
+            }}>
+              <div style={{ fontSize: 32, marginBottom: 10 }}>📬</div>
+              <p style={{ fontSize: 14, color: 'var(--ink)', fontWeight: 600, margin: '0 0 6px' }}>
+                Письмо отправлено
+              </p>
+              <p style={{ fontSize: 13, color: 'var(--ink-soft)', margin: '0 0 14px' }}>
+                Если этот адрес зарегистрирован, вы получите письмо со ссылкой для сброса пароля.
+              </p>
+              <button onClick={() => { setForgotMode(false); setForgotSent(false) }} style={linkButtonStyle}>
+                Вернуться к входу
+              </button>
+            </div>
+          ) : (
+            <form onSubmit={handleForgot} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <p style={{ fontSize: 13, color: 'var(--ink-soft)', margin: 0 }}>
+                Введите email, с которым вы покупали курс. Мы пришлём ссылку для установки нового пароля.
+              </p>
+              <input
+                type="email" value={email} onChange={e => setEmail(e.target.value)}
+                placeholder="твой@email.com" required
+                style={inputStyle}
+              />
+              <button type="submit" disabled={forgotLoading} style={submitStyle(forgotLoading)}>
+                {forgotLoading ? 'Отправляем...' : 'Восстановить доступ'}
+              </button>
+              <button type="button" onClick={() => setForgotMode(false)} style={linkButtonStyle}>
+                Вернуться к входу
+              </button>
+            </form>
+          )
         ) : (
-          <form onSubmit={handleMagicLink} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             <input
               type="email" value={email} onChange={e => setEmail(e.target.value)}
               placeholder="твой@email.com" required
+              style={inputStyle}
+            />
+            <input
+              type="password" value={password} onChange={e => setPassword(e.target.value)}
+              placeholder="Пароль" required
               style={inputStyle}
             />
             {error && (
               <p style={errorStyle}>{error}</p>
             )}
             <button type="submit" disabled={loading} style={submitStyle(loading)}>
-              {loading ? 'Отправляем...' : 'Получить ссылку для входа'}
+              {loading ? 'Входим...' : 'Войти'}
+            </button>
+            <button type="button" onClick={() => { setForgotMode(true); setError(null) }} style={linkButtonStyle}>
+              Забыли пароль? Восстановить доступ
             </button>
           </form>
         )}
@@ -127,6 +181,12 @@ const submitStyle = (loading: boolean): React.CSSProperties => ({
   opacity: loading ? 0.7 : 1,
   boxShadow: '0 6px 16px -6px rgba(180,80,50,.5)',
 })
+
+const linkButtonStyle: React.CSSProperties = {
+  background: 'none', border: 'none', padding: 0,
+  color: 'var(--terra-2)', fontSize: 13, fontWeight: 600,
+  fontFamily: 'var(--font-body)', cursor: 'pointer', textAlign: 'center',
+}
 
 const buyButtonStyle: React.CSSProperties = {
   display: 'block', textAlign: 'center',

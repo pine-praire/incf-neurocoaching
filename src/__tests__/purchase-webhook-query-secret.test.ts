@@ -12,15 +12,14 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 vi.mock('@/lib/supabase/admin', () => ({ createSupabaseAdminClient: vi.fn() }))
-vi.mock('@/lib/brevo', () => ({ sendMagicLinkEmail: vi.fn() }))
+vi.mock('@/lib/auth-utils', () => ({ generateTempPassword: vi.fn(() => 'Test-Pass-QS12') }))
 
 import { POST } from '@/app/api/getcourse/purchase-webhook/route'
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
-import { sendMagicLinkEmail } from '@/lib/brevo'
+import { generateTempPassword } from '@/lib/auth-utils'
 
 const SECRET = 'test-webhook-secret'
 const VALID_OFFER_ID = '5410171'
-const MAGIC_LINK = 'https://platform.incf.eu/auth/callback?token=abc'
 
 const BASE = 'http://localhost/api/getcourse/purchase-webhook'
 const WITH_SECRET = `${BASE}?secret=${SECRET}`
@@ -99,10 +98,6 @@ function makeMockClient(opts: Parameters<typeof buildFromMock>[0] = {}) {
     auth: {
       admin: {
         createUser: vi.fn().mockResolvedValue({ data: { user: { id: 'user-new' } }, error: null }),
-        generateLink: vi.fn().mockResolvedValue({
-          data: { properties: { action_link: MAGIC_LINK } },
-          error: null,
-        }),
       },
     },
   }
@@ -134,7 +129,7 @@ beforeEach(() => {
   vi.clearAllMocks()
   process.env.GETCOURSE_WEBHOOK_SECRET = SECRET
   process.env.NEXT_PUBLIC_SITE_URL = 'https://platform.incf.eu'
-  vi.mocked(sendMagicLinkEmail).mockResolvedValue(undefined)
+  vi.mocked(generateTempPassword).mockReturnValue('Test-Pass-QS12')
 })
 
 // ── Root cause: secret in ?secret= query param ───────────────────────────────
@@ -149,12 +144,15 @@ describe('GetCourse automation — secret as ?secret= query param', () => {
     expect(await res.json()).toEqual({ ok: true })
   })
 
-  it('sends magic link to the correct email when secret is in query param', async () => {
+  it('creates user with a password when secret is in query param', async () => {
+    const client = makeMockClient()
     vi.mocked(createSupabaseAdminClient).mockReturnValue(
-      makeMockClient() as unknown as ReturnType<typeof createSupabaseAdminClient>
+      client as unknown as ReturnType<typeof createSupabaseAdminClient>
     )
     await POST(makeAutomationRequest(validParams()))
-    expect(sendMagicLinkEmail).toHaveBeenCalledWith('meta.verkyt@gmail.com', MAGIC_LINK)
+    expect(client.auth.admin.createUser).toHaveBeenCalledWith(
+      expect.objectContaining({ email: 'meta.verkyt@gmail.com', password: 'Test-Pass-QS12' })
+    )
   })
 
   it('returns 401 when query param secret is wrong', async () => {
@@ -191,8 +189,6 @@ describe('GetCourse automation — secret as ?secret= query param', () => {
       vi.mocked(createSupabaseAdminClient).mockReturnValue(
         makeMockClient() as unknown as ReturnType<typeof createSupabaseAdminClient>
       )
-      vi.mocked(sendMagicLinkEmail).mockResolvedValue(undefined)
-
       const res = await POST(
         makeAutomationRequest(validParams({ order_id: `gc-order-${run}` }))
       )
@@ -200,7 +196,7 @@ describe('GetCourse automation — secret as ?secret= query param', () => {
       expect(await res.json(), `run ${run}`).toEqual({ ok: true })
 
       vi.clearAllMocks()
-      vi.mocked(sendMagicLinkEmail).mockResolvedValue(undefined)
+      vi.mocked(generateTempPassword).mockReturnValue('Test-Pass-QS12')
     }
   })
 })
@@ -240,8 +236,6 @@ describe('idempotency', () => {
       vi.mocked(createSupabaseAdminClient).mockReturnValue(
         client as unknown as ReturnType<typeof createSupabaseAdminClient>
       )
-      vi.mocked(sendMagicLinkEmail).mockResolvedValue(undefined)
-
       const res = await POST(
         makeAutomationRequest(validParams({ order_id: `retry-${run}` }))
       )
@@ -249,36 +243,49 @@ describe('idempotency', () => {
       expect(client.auth.admin.createUser, `run ${run}`).toHaveBeenCalledOnce()
 
       vi.clearAllMocks()
-      vi.mocked(sendMagicLinkEmail).mockResolvedValue(undefined)
+      vi.mocked(generateTempPassword).mockReturnValue('Test-Pass-QS12')
     }
   })
 })
 
-// ── Enrollment survives partial downstream failures ───────────────────────────
+// ── Enrollment survives createUser errors ─────────────────────────────────────
 
-describe('enrollment is not blocked by magic link or email failures', () => {
-  it('returns { ok: true } when generateLink fails — user is still enrolled', async () => {
-    const client = makeMockClient()
-    client.auth.admin.generateLink = vi.fn().mockResolvedValue({
-      data: null,
-      error: new Error('Supabase generateLink failed'),
+describe('enrollment createUser failure', () => {
+  it('returns 400 when createUser fails — webhook signals retry', async () => {
+    // Need a from mock that handles insert (event log) then update (error log)
+    const fromMock = vi.fn()
+    fromMock.mockReturnValueOnce({
+      insert: vi.fn().mockReturnValue({
+        select: vi.fn().mockReturnValue({
+          single: vi.fn().mockResolvedValue({ data: { id: 'ev-1' }, error: null }),
+        }),
+      }),
     })
+    // idempotency check
+    const idem = { select: vi.fn(), eq: vi.fn(), is: vi.fn(), not: vi.fn(), maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }) }
+    idem.select = vi.fn().mockReturnValue(idem)
+    idem.eq = vi.fn().mockReturnValue(idem)
+    idem.is = vi.fn().mockReturnValue(idem)
+    idem.not = vi.fn().mockReturnValue(idem)
+    fromMock.mockReturnValueOnce(idem)
+    // profiles lookup
+    fromMock.mockReturnValueOnce({ select: vi.fn().mockReturnValue({ eq: vi.fn().mockReturnValue({ maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }) }) }) })
+    // error update
+    fromMock.mockReturnValue({ update: vi.fn().mockReturnValue({ eq: vi.fn().mockResolvedValue({ data: null, error: null }) }) })
+
+    const client = {
+      from: fromMock,
+      auth: {
+        admin: {
+          createUser: vi.fn().mockResolvedValue({ data: null, error: new Error('Supabase auth error') }),
+        },
+      },
+    }
     vi.mocked(createSupabaseAdminClient).mockReturnValue(
       client as unknown as ReturnType<typeof createSupabaseAdminClient>
     )
     const res = await POST(makeAutomationRequest(validParams()))
-    expect(res.status).toBe(200)
-    expect(await res.json()).toEqual({ ok: true })
-  })
-
-  it('returns { ok: true } when Brevo throws — user is still enrolled', async () => {
-    vi.mocked(createSupabaseAdminClient).mockReturnValue(
-      makeMockClient() as unknown as ReturnType<typeof createSupabaseAdminClient>
-    )
-    vi.mocked(sendMagicLinkEmail).mockRejectedValue(new Error('Brevo timeout'))
-    const res = await POST(makeAutomationRequest(validParams()))
-    expect(res.status).toBe(200)
-    expect(await res.json()).toEqual({ ok: true })
+    expect(res.status).toBe(400)
   })
 })
 
@@ -296,11 +303,14 @@ describe('user with existing profile', () => {
     expect(client.auth.admin.createUser).not.toHaveBeenCalled()
   })
 
-  it('sends magic link to existing user', async () => {
+  it('returns { ok: true } for existing user without creating a new account', async () => {
+    const client = makeMockClient({ profileExists: true })
     vi.mocked(createSupabaseAdminClient).mockReturnValue(
-      makeMockClient({ profileExists: true }) as unknown as ReturnType<typeof createSupabaseAdminClient>
+      client as unknown as ReturnType<typeof createSupabaseAdminClient>
     )
-    await POST(makeAutomationRequest(validParams()))
-    expect(sendMagicLinkEmail).toHaveBeenCalledWith('meta.verkyt@gmail.com', MAGIC_LINK)
+    const res = await POST(makeAutomationRequest(validParams()))
+    expect(res.status).toBe(200)
+    expect(await res.json()).toEqual({ ok: true })
+    expect(client.auth.admin.createUser).not.toHaveBeenCalled()
   })
 })

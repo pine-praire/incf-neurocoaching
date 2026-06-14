@@ -6,17 +6,15 @@ import { readFileSync } from 'fs'
 import { resolve } from 'path'
 
 vi.mock('@/lib/supabase/admin', () => ({ createSupabaseAdminClient: vi.fn() }))
-vi.mock('@/lib/brevo', () => ({ sendMagicLinkEmail: vi.fn() }))
+vi.mock('@/lib/auth-utils', () => ({ generateTempPassword: vi.fn(() => 'Test-Pass-Sec1') }))
 
 import { POST } from '@/app/api/getcourse/purchase-webhook/route'
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
-import { sendMagicLinkEmail } from '@/lib/brevo'
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
 const SECRET = 'purchase-sec-secret-z'  // 21 chars
 const VALID_OFFER_ID = '5410171'
-const MAGIC_LINK = 'https://platform.incf.eu/auth/callback?token=xyz'
 
 // ── Mock factories ────────────────────────────────────────────────────────────
 
@@ -103,9 +101,6 @@ function makeClient(fromMock: ReturnType<typeof vi.fn>) {
     auth: {
       admin: {
         createUser: vi.fn().mockResolvedValue({ data: { user: { id: 'u-new' } }, error: null }),
-        generateLink: vi.fn().mockResolvedValue({
-          data: { properties: { action_link: MAGIC_LINK } }, error: null,
-        }),
       },
     },
   }
@@ -139,7 +134,6 @@ beforeEach(() => {
   vi.clearAllMocks()
   process.env.GETCOURSE_WEBHOOK_SECRET = SECRET
   process.env.NEXT_PUBLIC_SITE_URL = 'https://platform.incf.eu'
-  vi.mocked(sendMagicLinkEmail).mockResolvedValue(undefined)
 })
 
 // ── S-6: idempotency ──────────────────────────────────────────────────────────
@@ -156,19 +150,19 @@ describe('S-6 — idempotency', () => {
       expect(await res.json(), `run ${run}`).toEqual({ ok: true })
 
       vi.clearAllMocks()
-      vi.mocked(sendMagicLinkEmail).mockResolvedValue(undefined)
     }
   })
 
-  it('does not send email for duplicate order — 30 runs', async () => {
+  it('does not call createUser for duplicate order — 30 runs (enrollment skipped)', async () => {
     for (let run = 0; run < 30; run++) {
+      const client = makeClient(buildDuplicateFromMock())
       vi.mocked(createSupabaseAdminClient).mockReturnValue(
-        makeClient(buildDuplicateFromMock()) as unknown as ReturnType<typeof createSupabaseAdminClient>
+        client as unknown as ReturnType<typeof createSupabaseAdminClient>
       )
 
       await POST(makeRequest(validBody({ order_id: `ord-nomail-${run}` })))
 
-      expect(sendMagicLinkEmail, `run ${run}: must not send to duplicate order`).not.toHaveBeenCalled()
+      expect(client.auth.admin.createUser, `run ${run}: must not create user for duplicate order`).not.toHaveBeenCalled()
 
       vi.clearAllMocks()
     }
@@ -189,15 +183,19 @@ describe('S-6 — idempotency', () => {
     }
   })
 
-  it('processes a new order normally (idempotency check passes)', async () => {
+  it('processes a new order normally and creates user with password (idempotency check passes)', async () => {
+    const client = makeClient(buildHappyFromMock())
     vi.mocked(createSupabaseAdminClient).mockReturnValue(
-      makeClient(buildHappyFromMock()) as unknown as ReturnType<typeof createSupabaseAdminClient>
+      client as unknown as ReturnType<typeof createSupabaseAdminClient>
     )
 
     const res = await POST(makeRequest(validBody({ order_id: 'ord-new' })))
     expect(res.status).toBe(200)
     expect(await res.json()).toEqual({ ok: true })
-    expect(sendMagicLinkEmail).toHaveBeenCalledOnce()
+    expect(client.auth.admin.createUser).toHaveBeenCalledOnce()
+    expect(client.auth.admin.createUser).toHaveBeenCalledWith(
+      expect.objectContaining({ password: 'Test-Pass-Sec1' })
+    )
   })
 })
 
