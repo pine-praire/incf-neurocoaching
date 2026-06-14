@@ -4,7 +4,6 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 
 const mockPush = vi.fn()
 const mockSignIn = vi.fn()
-const mockResetPassword = vi.fn()
 const mockFetch = vi.fn()
 
 vi.mock('next/navigation', () => ({
