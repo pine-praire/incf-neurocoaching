@@ -21,7 +21,11 @@ function AuthCallbackHandler() {
         const refresh_token = params.get('refresh_token')
         if (access_token && refresh_token) {
           const { error } = await supabase.auth.setSession({ access_token, refresh_token })
-          if (!error) { router.replace('/roadmap?session=start'); return }
+          if (!error) {
+            const isRecovery = params.get('type') === 'recovery' || searchParams.get('type') === 'recovery'
+            if (isRecovery) { router.replace('/reset-password'); return }
+            router.replace('/roadmap?session=start'); return
+          }
         }
       }
 
