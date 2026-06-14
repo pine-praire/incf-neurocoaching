@@ -253,10 +253,10 @@ function AnnotationCard({ annotation, stamp, mapWidth, isCompact }: { annotation
   )
 }
 
-function LessonModal({ lesson, completed, answers, onClose, onMarkDone, onUndo, onSetAnswer, hasQuest }: {
+function LessonModal({ lesson, completed, answers, onClose, onMarkDone, onUndo, onSetAnswer, hasQuest, onNext, nextLabel }: {
   lesson: OpenLesson; completed: Set<string>; answers: Record<string, string>
   onClose: () => void; onMarkDone: (id: string) => void; onUndo: (id: string) => void; onSetAnswer: (id: string, v: string) => void
-  hasQuest: boolean
+  hasQuest: boolean; onNext?: (() => void) | null; nextLabel?: string | null
 }) {
   const done = completed.has(lesson.id)
   const answer = answers[lesson.id] ?? ''
@@ -330,7 +330,7 @@ function LessonModal({ lesson, completed, answers, onClose, onMarkDone, onUndo, 
             </div>
           )}
           {'nativePitch' in lesson && lesson.nativePitch && <NativeMention moduleRef={lesson.nativePitch} />}
-          <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginTop: 4 }}>
+          <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginTop: 4, flexWrap: 'wrap' }}>
             {!done ? (
               <button onClick={() => onMarkDone(lesson.id)}
                 style={{ display: 'inline-flex', alignItems: 'center', gap: 7, background: 'var(--terra-2)', color: '#fff', border: 'none', padding: '10px 18px', borderRadius: 10, fontWeight: 600, fontSize: 13, fontFamily: 'var(--font-body)', cursor: 'pointer', boxShadow: '0 6px 16px -6px rgba(180,80,50,.5)' }}>
@@ -341,6 +341,12 @@ function LessonModal({ lesson, completed, answers, onClose, onMarkDone, onUndo, 
                 ✅ Урок засчитан · +{lesson.xp} XP
                 <button onClick={() => onUndo(lesson.id)} style={{ background: 'none', border: 'none', color: 'var(--ink-mute)', fontSize: 12, cursor: 'pointer', padding: '4px 8px' }}>отменить</button>
               </div>
+            )}
+            {done && onNext && (
+              <button onClick={onNext}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 7, background: 'var(--terra-2)', color: '#fff', border: 'none', padding: '10px 18px', borderRadius: 10, fontWeight: 600, fontSize: 13, fontFamily: 'var(--font-body)', cursor: 'pointer', boxShadow: '0 6px 16px -6px rgba(180,80,50,.5)' }}>
+                {nextLabel ?? 'Следующий'} →
+              </button>
             )}
             <button onClick={onClose} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'transparent', color: 'var(--ink)', border: '1px solid var(--line)', padding: '9px 14px', borderRadius: 10, fontWeight: 600, fontSize: 13, fontFamily: 'var(--font-body)', cursor: 'pointer' }}>Закрыть</button>
           </div>
@@ -553,6 +559,36 @@ export default function RoadmapPage() {
     await saveAnswer(id, v)
   }, [])
 
+  const scrollToStamp = useCallback((id: string) => {
+    const stamp = STAMPS.find(s => s.id === id)
+    if (!stamp || !mapRef.current) return
+    const mapRect = mapRef.current.getBoundingClientRect()
+    const stampY = (stamp.y / H) * mapRect.height + mapRect.top + window.scrollY
+    window.scrollTo({ top: Math.max(0, stampY - window.innerHeight * 0.4), behavior: 'smooth' })
+  }, [])
+
+  const handleLessonClose = useCallback(() => {
+    const currentId = openLesson?.id
+    setOpenLesson(null)
+    if (!currentId) return
+    const currentIdx = STAMPS.findIndex(s => s.id === currentId)
+    const nextStamp = currentIdx >= 0 ? STAMPS.slice(currentIdx + 1).find(s => s.kind !== 'cert') : null
+    if (nextStamp) scrollToStamp(nextStamp.id)
+  }, [openLesson?.id, scrollToStamp])
+
+  const handleNextLesson = useCallback(() => {
+    const currentId = openLesson?.id
+    if (!currentId) return
+    const currentIdx = STAMPS.findIndex(s => s.id === currentId)
+    const nextStamp = currentIdx >= 0 ? STAMPS.slice(currentIdx + 1).find(s => s.kind !== 'badge' && s.kind !== 'cert') : null
+    if (!nextStamp) { setOpenLesson(null); return }
+    if (nextStamp.id === 'test') { setOpenLesson(null); setShowFinalTest(true); return }
+    if (nextStamp.id === 'six') { setOpenLesson(null); setShowSixModal(true); return }
+    const lesson = LESSONS.find(l => l.id === nextStamp.id)
+    if (lesson) { setOpenLesson(lesson as OpenLesson); return }
+    setOpenLesson(null)
+  }, [openLesson?.id])
+
   useLayoutEffect(() => {
     const el = mapRef.current
     if (!el) return
@@ -574,6 +610,16 @@ export default function RoadmapPage() {
 
   const nextLesson: OpenLesson | null = (LESSONS.find(l => !completed.has(l.id)) ?? FINALS.find(f => !completed.has(f.id)) ?? null) as OpenLesson | null
   const testDone = completed.has('test')
+
+  const nextStampForModal = openLesson ? (() => {
+    const idx = STAMPS.findIndex(s => s.id === openLesson.id)
+    return idx >= 0 ? STAMPS.slice(idx + 1).find(s => s.kind !== 'badge' && s.kind !== 'cert') : null
+  })() : null
+  const nextLabelForModal = nextStampForModal
+    ? nextStampForModal.id === 'test' ? 'Итоговый тест'
+      : nextStampForModal.id === 'six' ? '6 вопросов'
+      : LESSONS.find(l => l.id === nextStampForModal.id)?.title ?? 'Следующий'
+    : null
 
   if (loading) return (
     <div style={{ minHeight: '100vh', background: '#ece9e2', display: 'grid', placeItems: 'center' }}>
@@ -630,8 +676,10 @@ userName={userName}
 
       {openLesson && (
         <LessonModal key={openLesson.id} lesson={openLesson} completed={completed} answers={answers}
-          onClose={() => setOpenLesson(null)} onMarkDone={markDone} onUndo={undo} onSetAnswer={setAnswer}
-          hasQuest={questLessonIds.has(openLesson.id)} />
+          onClose={handleLessonClose} onMarkDone={markDone} onUndo={undo} onSetAnswer={setAnswer}
+          hasQuest={questLessonIds.has(openLesson.id)}
+          onNext={nextStampForModal ? handleNextLesson : null}
+          nextLabel={nextLabelForModal} />
       )}
 
       {showFinalTest && (
