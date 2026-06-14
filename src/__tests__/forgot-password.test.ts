@@ -2,15 +2,33 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 vi.mock('@/lib/supabase/admin', () => ({ createSupabaseAdminClient: vi.fn() }))
+vi.mock('@/lib/brevo', () => ({ sendPasswordResetEmail: vi.fn().mockResolvedValue(undefined) }))
 
 import { POST } from '@/app/api/auth/forgot-password/route'
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
+import { sendPasswordResetEmail } from '@/lib/brevo'
 
-function makeMockClient() {
+const RESET_LINK = 'https://supabase.co/auth/v1/verify?token=abc&type=recovery'
+
+// Builds a mock client.
+// profileFound: whether .from('profiles') returns a row
+function makeMockClient({ profileFound = true } = {}) {
+  const generateLink = vi.fn().mockResolvedValue({
+    data: { properties: { action_link: RESET_LINK } },
+    error: null,
+  })
   return {
-    auth: {
-      resetPasswordForEmail: vi.fn().mockResolvedValue({ data: {}, error: null }),
-    },
+    from: vi.fn().mockReturnValue({
+      select: vi.fn().mockReturnValue({
+        eq: vi.fn().mockReturnValue({
+          maybeSingle: vi.fn().mockResolvedValue({
+            data: profileFound ? { id: 'user-1' } : null,
+            error: null,
+          }),
+        }),
+      }),
+    }),
+    auth: { admin: { generateLink } },
   }
 }
 
@@ -33,8 +51,7 @@ describe('input validation', () => {
   it('returns 400 when email is absent', async () => {
     const res = await POST(makeRequest({}))
     expect(res.status).toBe(400)
-    const body = await res.json()
-    expect(body.error).toMatch(/email/i)
+    expect((await res.json()).error).toMatch(/email/i)
   })
 
   it('returns 400 on invalid JSON body', async () => {
@@ -60,15 +77,29 @@ describe('happy path', () => {
     expect(await res.json()).toEqual({ ok: true })
   })
 
-  it('calls resetPasswordForEmail with correct redirectTo', async () => {
+  it('calls generateLink with correct redirectTo', async () => {
     const client = makeMockClient()
     vi.mocked(createSupabaseAdminClient).mockReturnValue(
       client as unknown as ReturnType<typeof createSupabaseAdminClient>
     )
     await POST(makeRequest({ email: 'student@example.com' }))
-    expect(client.auth.resetPasswordForEmail).toHaveBeenCalledWith(
+    expect(client.auth.admin.generateLink).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'recovery',
+        email: 'student@example.com',
+        options: expect.objectContaining({ redirectTo: expect.stringContaining('/auth/callback') }),
+      })
+    )
+  })
+
+  it('sends the reset email via Brevo', async () => {
+    vi.mocked(createSupabaseAdminClient).mockReturnValue(
+      makeMockClient() as unknown as ReturnType<typeof createSupabaseAdminClient>
+    )
+    await POST(makeRequest({ email: 'student@example.com' }))
+    expect(vi.mocked(sendPasswordResetEmail)).toHaveBeenCalledWith(
       'student@example.com',
-      expect.objectContaining({ redirectTo: expect.stringContaining('/auth/callback') })
+      RESET_LINK,
     )
   })
 
@@ -78,9 +109,8 @@ describe('happy path', () => {
       client as unknown as ReturnType<typeof createSupabaseAdminClient>
     )
     await POST(makeRequest({ email: '  STUDENT@EXAMPLE.COM  ' }))
-    expect(client.auth.resetPasswordForEmail).toHaveBeenCalledWith(
-      'student@example.com',
-      expect.any(Object)
+    expect(client.auth.admin.generateLink).toHaveBeenCalledWith(
+      expect.objectContaining({ email: 'student@example.com' })
     )
   })
 
@@ -97,28 +127,32 @@ describe('happy path', () => {
   })
 })
 
-// ── Security: no account enumeration ─────────────────────────────────────────
+// ── Not enrolled ──────────────────────────────────────────────────────────────
 
-describe('security — no account enumeration', () => {
-  it('returns { ok: true } for an unregistered email (same as registered)', async () => {
-    const client = makeMockClient()
-    client.auth.resetPasswordForEmail.mockResolvedValue({ data: {}, error: null })
+describe('not enrolled', () => {
+  it('returns { notEnrolled: true } when email is not in profiles', async () => {
     vi.mocked(createSupabaseAdminClient).mockReturnValue(
-      client as unknown as ReturnType<typeof createSupabaseAdminClient>
+      makeMockClient({ profileFound: false }) as unknown as ReturnType<typeof createSupabaseAdminClient>
     )
     const res = await POST(makeRequest({ email: 'unknown@nowhere.com' }))
     expect(res.status).toBe(200)
-    expect(await res.json()).toEqual({ ok: true })
+    expect(await res.json()).toEqual({ notEnrolled: true })
   })
 
-  it('returns { ok: true } even when Supabase returns an error', async () => {
-    const client = makeMockClient()
-    client.auth.resetPasswordForEmail.mockResolvedValue({ data: null, error: { message: 'User not found' } })
+  it('does not call generateLink when email is not enrolled', async () => {
+    const client = makeMockClient({ profileFound: false })
     vi.mocked(createSupabaseAdminClient).mockReturnValue(
       client as unknown as ReturnType<typeof createSupabaseAdminClient>
     )
-    const res = await POST(makeRequest({ email: 'unknown@nowhere.com' }))
-    expect(res.status).toBe(200)
-    expect(await res.json()).toEqual({ ok: true })
+    await POST(makeRequest({ email: 'unknown@nowhere.com' }))
+    expect(client.auth.admin.generateLink).not.toHaveBeenCalled()
+  })
+
+  it('does not send Brevo email when email is not enrolled', async () => {
+    vi.mocked(createSupabaseAdminClient).mockReturnValue(
+      makeMockClient({ profileFound: false }) as unknown as ReturnType<typeof createSupabaseAdminClient>
+    )
+    await POST(makeRequest({ email: 'unknown@nowhere.com' }))
+    expect(vi.mocked(sendPasswordResetEmail)).not.toHaveBeenCalled()
   })
 })

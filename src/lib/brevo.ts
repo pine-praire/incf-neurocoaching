@@ -1,5 +1,79 @@
 const BREVO_API_URL = 'https://api.brevo.com/v3/smtp/email'
 
+export async function sendPasswordResetEmail(
+  email: string,
+  resetUrl: string,
+): Promise<void> {
+  const apiKey = process.env.BREVO_API_KEY
+  if (!apiKey) throw new Error('Missing BREVO_API_KEY')
+
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://incf-neurocoaching.vercel.app'
+
+  const htmlContent = `
+<!DOCTYPE html>
+<html lang="ru">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#ece9e2;font-family:sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#ece9e2;padding:40px 0;">
+    <tr><td align="center">
+      <table width="520" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:18px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,.08);">
+        <tr><td align="center" style="background:#1c2233;padding:32px 40px 28px;">
+          <div style="width:52px;height:52px;border-radius:12px;background:#c96442;display:inline-flex;align-items:center;justify-content:center;margin-bottom:14px;">
+            <span style="color:#fff;font-size:24px;font-weight:700;line-height:1;">i</span>
+          </div>
+          <div style="font-size:11px;letter-spacing:2px;color:#c96442;text-transform:uppercase;font-weight:700;margin-bottom:4px;">INCF</div>
+          <div style="font-size:18px;color:#fff;font-weight:600;">Введение в нейрокоучинг</div>
+        </td></tr>
+        <tr><td style="padding:36px 40px;">
+          <p style="margin:0 0 16px;font-size:15px;color:#333;line-height:1.7;">
+            Вы запросили восстановление доступа к платформе INCF.
+          </p>
+          <p style="margin:0 0 28px;font-size:14px;color:#666;line-height:1.7;">
+            Нажмите на кнопку ниже, чтобы задать новый пароль. Ссылка действует <strong>1 час</strong>.
+          </p>
+        </td></tr>
+        <tr><td align="center" style="padding:0 40px 36px;">
+          <a href="${resetUrl}" style="display:inline-block;background:#c96442;color:#fff;text-decoration:none;padding:14px 36px;border-radius:999px;font-size:15px;font-weight:600;">
+            Задать новый пароль
+          </a>
+        </td></tr>
+        <tr><td style="padding:0 40px 28px;">
+          <p style="margin:0;font-size:12px;color:#999;line-height:1.6;">
+            Если вы не запрашивали смену пароля — просто проигнорируйте это письмо.
+            Войти на платформу можно по адресу <a href="${siteUrl}/login" style="color:#c96442;">${siteUrl}/login</a>
+          </p>
+        </td></tr>
+        <tr><td style="background:#f5f3f0;padding:20px 40px;border-top:1px solid #e8e4de;">
+          <p style="margin:0;font-size:12px;color:#aaa;text-align:center;line-height:1.6;">
+            INCF — International Neuro Coaching Federation<br>
+            <a href="https://incf.eu" style="color:#aaa;">incf.eu</a>
+          </p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`
+
+  const body = {
+    sender: { name: 'INCF Нейрокоучинг', email: 'noreply@incf.eu' },
+    to: [{ email }],
+    subject: 'Восстановление доступа — Введение в нейрокоучинг',
+    htmlContent,
+  }
+
+  const res = await fetch(BREVO_API_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'api-key': apiKey },
+    body: JSON.stringify(body),
+  })
+
+  if (!res.ok) {
+    const text = await res.text()
+    throw new Error(`Brevo API error ${res.status}: ${text}`)
+  }
+}
+
 export async function sendCertificateEmail(
   email: string,
   name: string,

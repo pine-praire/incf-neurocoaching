@@ -37,7 +37,10 @@ function AuthCallbackHandler() {
       const type = searchParams.get('type') as EmailOtpType | null
       if (token_hash && type) {
         const { error } = await supabase.auth.verifyOtp({ token_hash, type })
-        if (!error) { router.replace('/roadmap?session=start'); return }
+        if (!error) {
+          if (type === 'recovery') { router.replace('/reset-password'); return }
+          router.replace('/roadmap?session=start'); return
+        }
       }
 
       router.replace('/login?error=auth')

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { createSupabaseAdminClient } from "@/lib/supabase/admin"
+import { sendPasswordResetEmail } from "@/lib/brevo"
 
 export const runtime = "nodejs"
 
@@ -22,12 +23,30 @@ export async function POST(request: Request) {
   }
 
   const supabase = createSupabaseAdminClient()
+
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('id')
+    .eq('email', email)
+    .maybeSingle()
+
+  if (!profile) {
+    return NextResponse.json({ notEnrolled: true })
+  }
+
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? ''
 
-  await supabase.auth.resetPasswordForEmail(email, {
-    redirectTo: `${siteUrl}/auth/callback?type=recovery&next=/roadmap`,
+  const { data: linkData, error: linkError } = await supabase.auth.admin.generateLink({
+    type: 'recovery',
+    email,
+    options: { redirectTo: `${siteUrl}/auth/callback?type=recovery` },
   })
 
-  // Always return ok — never reveal whether the email is registered
+  if (linkError || !linkData?.properties?.action_link) {
+    return NextResponse.json({ error: "Failed to generate reset link" }, { status: 500 })
+  }
+
+  await sendPasswordResetEmail(email, linkData.properties.action_link)
+
   return NextResponse.json({ ok: true })
 }

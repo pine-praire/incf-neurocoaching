@@ -65,7 +65,7 @@ describe('login form — email + password', () => {
     fireEvent.click(screen.getByRole('button', { name: /войти/i }))
 
     await waitFor(() =>
-      expect(screen.getByText(/неверный email или пароль/i)).toBeInTheDocument()
+      expect(screen.getByText(/неверный пароль/i)).toBeInTheDocument()
     )
     expect(mockPush).not.toHaveBeenCalled()
   })

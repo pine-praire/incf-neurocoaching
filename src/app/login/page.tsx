@@ -4,10 +4,10 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 
-const NOT_REGISTERED_MSG =
-  'Этот адрес не зарегистрирован. Проверьте, через какой адрес вы покупали курс «Введение в нейрокоучинг».'
+const NOT_ENROLLED_MSG =
+  'Этот адрес не найден в системе. Убедитесь, что вы покупали курс именно на этот email.'
 const WRONG_PASSWORD_MSG =
-  'Неверный email или пароль. Попробуйте ещё раз или воспользуйтесь восстановлением доступа.'
+  'Неверный пароль. Попробуйте ещё раз или воспользуйтесь восстановлением доступа.'
 
 export default function LoginPage() {
   const router = useRouter()
@@ -19,6 +19,7 @@ export default function LoginPage() {
   const [forgotMode, setForgotMode] = useState(false)
   const [forgotSent, setForgotSent] = useState(false)
   const [forgotLoading, setForgotLoading] = useState(false)
+  const [forgotError, setForgotError] = useState<string | null>(null)
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -29,14 +30,13 @@ export default function LoginPage() {
     const { error: signInError } = await supabase.auth.signInWithPassword({ email, password })
 
     if (signInError) {
-      const msg = signInError.message.toLowerCase()
-      if (msg.includes('invalid') || msg.includes('wrong') || msg.includes('credentials')) {
-        setError(WRONG_PASSWORD_MSG)
-      } else if (msg.includes('not found') || msg.includes('no user')) {
-        setError(NOT_REGISTERED_MSG)
-      } else {
-        setError(WRONG_PASSWORD_MSG)
-      }
+      const checkRes = await fetch('/api/auth/check-enrollment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      })
+      const checkJson = await checkRes.json().catch(() => ({}))
+      setError(checkJson.enrolled === false ? NOT_ENROLLED_MSG : WRONG_PASSWORD_MSG)
       setLoading(false)
       return
     }
@@ -47,13 +47,19 @@ export default function LoginPage() {
   const handleForgot = async (e: React.FormEvent) => {
     e.preventDefault()
     setForgotLoading(true)
-    await fetch('/api/auth/forgot-password', {
+    setForgotError(null)
+    const res = await fetch('/api/auth/forgot-password', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email }),
     })
-    setForgotSent(true)
+    const json = await res.json().catch(() => ({}))
     setForgotLoading(false)
+    if (json.notEnrolled) {
+      setForgotError(NOT_ENROLLED_MSG)
+      return
+    }
+    setForgotSent(true)
   }
 
   return (
@@ -112,6 +118,7 @@ export default function LoginPage() {
                 placeholder="твой@email.com" required
                 style={inputStyle}
               />
+              {forgotError && <p style={errorStyle}>{forgotError}</p>}
               <button type="submit" disabled={forgotLoading} style={submitStyle(forgotLoading)}>
                 {forgotLoading ? 'Отправляем...' : 'Восстановить доступ'}
               </button>
