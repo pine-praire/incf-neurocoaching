@@ -76,14 +76,16 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: true })
     }
 
-    await supabase.from("getcourse_orders").update({
+    const { error: orderErr } = await supabase.from("getcourse_orders").update({
       status: "cancelled",
       raw_payload: payload,
     }).eq("getcourse_order_id", payload.order_id)
+    if (orderErr) throw orderErr
 
-    await supabase.from("enrollments").update({
+    const { error: enrollErr } = await supabase.from("enrollments").update({
       status: "revoked",
     }).eq("getcourse_order_id", payload.order_id).eq("course_id", courseId)
+    if (enrollErr) throw enrollErr
 
     if (eventLog?.id) {
       await supabase.from("webhook_events").update({

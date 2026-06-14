@@ -361,3 +361,152 @@ describe('cancellation logic', () => {
     expect(enrollCall[0]).toBe('enrollments')
   })
 })
+
+// ── DB error handling — upserts must throw so GetCourse retries ───────────────
+
+const DB_ERROR = { message: 'database write failed', code: '500' }
+
+function buildOrdersFailFromMock() {
+  const m = vi.fn()
+  // 1. webhook_events insert
+  m.mockReturnValueOnce({
+    insert: vi.fn().mockReturnValue({
+      select: vi.fn().mockReturnValue({
+        single: vi.fn().mockResolvedValue({ data: { id: 'ev-c1' }, error: null }),
+      }),
+    }),
+  })
+  // 2. idempotency check → not found
+  const idem: Record<string, ReturnType<typeof vi.fn>> = {
+    select: vi.fn(), eq: vi.fn(), is: vi.fn(), not: vi.fn(),
+    maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+  }
+  idem.select = vi.fn().mockReturnValue(idem)
+  idem.eq     = vi.fn().mockReturnValue(idem)
+  idem.is     = vi.fn().mockReturnValue(idem)
+  idem.not    = vi.fn().mockReturnValue(idem)
+  m.mockReturnValueOnce(idem)
+  // 3. getcourse_orders update → DB error
+  m.mockReturnValueOnce({
+    update: vi.fn().mockReturnValue({
+      eq: vi.fn().mockResolvedValue({ data: null, error: DB_ERROR }),
+    }),
+  })
+  // 4. webhook_events error log
+  m.mockReturnValue({
+    update: vi.fn().mockReturnValue({
+      eq: vi.fn().mockResolvedValue({ data: null, error: null }),
+    }),
+  })
+  return m
+}
+
+function buildEnrollmentsFailFromMock() {
+  const m = vi.fn()
+  // 1. webhook_events insert
+  m.mockReturnValueOnce({
+    insert: vi.fn().mockReturnValue({
+      select: vi.fn().mockReturnValue({
+        single: vi.fn().mockResolvedValue({ data: { id: 'ev-c1' }, error: null }),
+      }),
+    }),
+  })
+  // 2. idempotency check → not found
+  const idem: Record<string, ReturnType<typeof vi.fn>> = {
+    select: vi.fn(), eq: vi.fn(), is: vi.fn(), not: vi.fn(),
+    maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+  }
+  idem.select = vi.fn().mockReturnValue(idem)
+  idem.eq     = vi.fn().mockReturnValue(idem)
+  idem.is     = vi.fn().mockReturnValue(idem)
+  idem.not    = vi.fn().mockReturnValue(idem)
+  m.mockReturnValueOnce(idem)
+  // 3. getcourse_orders update → ok
+  m.mockReturnValueOnce({
+    update: vi.fn().mockReturnValue({
+      eq: vi.fn().mockResolvedValue({ data: null, error: null }),
+    }),
+  })
+  // 4. enrollments update → DB error
+  m.mockReturnValueOnce({
+    update: vi.fn().mockReturnValue({
+      eq: vi.fn().mockReturnValue({
+        eq: vi.fn().mockResolvedValue({ data: null, error: DB_ERROR }),
+      }),
+    }),
+  })
+  // 5. webhook_events error log
+  m.mockReturnValue({
+    update: vi.fn().mockReturnValue({
+      eq: vi.fn().mockResolvedValue({ data: null, error: null }),
+    }),
+  })
+  return m
+}
+
+describe('DB error handling', () => {
+  it('returns 400 when orders update fails — GetCourse retries', async () => {
+    vi.mocked(createSupabaseAdminClient).mockReturnValue(
+      { from: buildOrdersFailFromMock(), auth: { admin: {} } } as unknown as ReturnType<typeof createSupabaseAdminClient>
+    )
+    const res = await POST(makeRequest(jsonBody(), 'application/json'))
+    expect(res.status).toBe(400)
+  })
+
+  it('returns 400 when enrollments update fails — user access NOT silently kept', async () => {
+    vi.mocked(createSupabaseAdminClient).mockReturnValue(
+      { from: buildEnrollmentsFailFromMock(), auth: { admin: {} } } as unknown as ReturnType<typeof createSupabaseAdminClient>
+    )
+    const res = await POST(makeRequest(jsonBody(), 'application/json'))
+    expect(res.status).toBe(400)
+  })
+
+  it('orders failure returns 400 consistently across 20 runs', async () => {
+    for (let run = 0; run < 20; run++) {
+      vi.mocked(createSupabaseAdminClient).mockReturnValue(
+        { from: buildOrdersFailFromMock(), auth: { admin: {} } } as unknown as ReturnType<typeof createSupabaseAdminClient>
+      )
+      const res = await POST(makeRequest(jsonBody({ order_id: `ord-of-${run}` }), 'application/json'))
+      expect(res.status, `run ${run}`).toBe(400)
+      vi.clearAllMocks()
+    }
+  })
+
+  it('enrollments failure returns 400 consistently across 20 runs', async () => {
+    for (let run = 0; run < 20; run++) {
+      vi.mocked(createSupabaseAdminClient).mockReturnValue(
+        { from: buildEnrollmentsFailFromMock(), auth: { admin: {} } } as unknown as ReturnType<typeof createSupabaseAdminClient>
+      )
+      const res = await POST(makeRequest(jsonBody({ order_id: `ord-ef-${run}` }), 'application/json'))
+      expect(res.status, `run ${run}`).toBe(400)
+      vi.clearAllMocks()
+    }
+  })
+
+  it('does not mark processed_at when orders update failed', async () => {
+    const fromMock = buildOrdersFailFromMock()
+    vi.mocked(createSupabaseAdminClient).mockReturnValue(
+      { from: fromMock, auth: { admin: {} } } as unknown as ReturnType<typeof createSupabaseAdminClient>
+    )
+    await POST(makeRequest(jsonBody(), 'application/json'))
+    // The last from() call is the error log update — its argument must have `error`, not `processed_at`
+    const allUpdateResults = fromMock.mock.results.filter(r => r.value?.update)
+    const lastUpdateFn = allUpdateResults[allUpdateResults.length - 1]?.value?.update as ReturnType<typeof vi.fn> | undefined
+    const lastArg = lastUpdateFn?.mock.calls[0]?.[0] as Record<string, unknown> | undefined
+    expect(lastArg).toHaveProperty('error')
+    expect(lastArg).not.toHaveProperty('processed_at')
+  })
+
+  it('does not mark processed_at when enrollments update failed', async () => {
+    const fromMock = buildEnrollmentsFailFromMock()
+    vi.mocked(createSupabaseAdminClient).mockReturnValue(
+      { from: fromMock, auth: { admin: {} } } as unknown as ReturnType<typeof createSupabaseAdminClient>
+    )
+    await POST(makeRequest(jsonBody(), 'application/json'))
+    // The last update call should have error field set, not processed_at
+    const allUpdateResults = fromMock.mock.results.filter(r => r.value?.update)
+    const lastUpdate = allUpdateResults[allUpdateResults.length - 1]?.value?.update as ReturnType<typeof vi.fn> | undefined
+    const lastArg = lastUpdate?.mock.calls[0]?.[0] as Record<string, unknown> | undefined
+    expect(lastArg).toHaveProperty('error')
+  })
+})
