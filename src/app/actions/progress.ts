@@ -128,6 +128,16 @@ export async function issueCertificate(name: string): Promise<{
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Not authenticated' }
 
+  const { data: progressRows } = await supabase
+    .from('progress')
+    .select('step_id')
+    .eq('user_id', user.id)
+
+  const completedSteps = new Set((progressRows ?? []).map((p: { step_id: string }) => p.step_id))
+  if (!LESSONS.every(l => completedSteps.has(l.id))) {
+    return { error: 'Необходимо пройти все уроки курса' }
+  }
+
   const admin = createSupabaseAdminClient()
 
   const { data: existing } = await admin
