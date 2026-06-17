@@ -156,7 +156,20 @@ export async function issueCertificate(name: string): Promise<{
     .select('cert_number, name, issued_at')
     .single()
 
-  if (error || !cert) return { error: error?.message ?? 'Не удалось создать сертификат' }
+  if (error || !cert) {
+    // Если ошибка дубликата (23505) — сертификат уже создан параллельным запросом, вернуть его
+    if (error?.code === '23505') {
+      const { data: existing } = await admin
+        .from('certificates')
+        .select('cert_number, name, issued_at')
+        .eq('user_id', user.id)
+        .maybeSingle()
+      if (existing) {
+        return { ok: true, certNumber: existing.cert_number, name: existing.name, issuedAt: existing.issued_at }
+      }
+    }
+    return { error: error?.message ?? 'Не удалось создать сертификат' }
+  }
 
   let emailSent = false
   try {
