@@ -13,6 +13,12 @@ export default async function ProfilePage() {
     .select('step_id')
     .eq('user_id', user.id)
 
+  const { data: certificate } = await supabase
+    .from('certificates')
+    .select('cert_number, issued_at')
+    .eq('user_id', user.id)
+    .single()
+
   const completedLessons = (progressRows ?? []).filter(
     p => LESSONS.some(l => l.id === p.step_id) || FINALS.some(f => f.id === p.step_id)
   ).length
@@ -126,6 +132,30 @@ export default async function ProfilePage() {
               }} />
             </div>
           </div>
+
+          {/* Certificate */}
+          {certificate && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <p style={{
+                fontSize: 10, fontFamily: 'var(--font-mono)', fontWeight: 600,
+                letterSpacing: '.14em', textTransform: 'uppercase', color: 'var(--ink-soft)', margin: 0,
+              }}>
+                Сертификат № {certificate.cert_number} · {new Date(certificate.issued_at).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' })}
+              </p>
+              <iframe
+                src={`/api/certificate/${certificate.cert_number}`}
+                style={{ width: '100%', height: 480, borderRadius: 10, border: '1px solid var(--line)' }}
+                title="Сертификат"
+              />
+              <a
+                href={`/api/certificate/${certificate.cert_number}`}
+                download
+                style={{ fontSize: 13, color: 'var(--terra)', textUnderlineOffset: 2, textDecoration: 'none', fontWeight: 600 }}
+              >
+                Скачать PDF →
+              </a>
+            </div>
+          )}
 
           {/* Actions */}
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
