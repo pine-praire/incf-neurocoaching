@@ -7,13 +7,14 @@ export const runtime = 'nodejs'
 
 export async function GET(
   _req: Request,
-  { params }: { params: { certNumber: string } }
+  { params }: { params: Promise<{ certNumber: string }> }
 ) {
+  const { certNumber } = await params
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const certNum = parseInt(params.certNumber, 10)
+  const certNum = parseInt(certNumber, 10)
   if (isNaN(certNum)) return NextResponse.json({ error: 'Invalid' }, { status: 400 })
 
   const admin = createSupabaseAdminClient()
