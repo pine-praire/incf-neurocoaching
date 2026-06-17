@@ -48,7 +48,7 @@ export default async function ProfilePage() {
 
   return (
     <div style={{
-      background: '#ece9e2',
+      background: 'var(--bg-deep)',
       minHeight: '100vh',
       padding: '20px 14px 56px',
       fontFamily: 'var(--font-body)',

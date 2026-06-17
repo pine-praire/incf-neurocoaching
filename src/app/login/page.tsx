@@ -90,7 +90,7 @@ export default function LoginPage() {
 
   return (
     <div style={{
-      minHeight: '100vh', background: '#ece9e2',
+      minHeight: '100vh', background: 'var(--bg-deep)',
       display: 'grid', placeItems: 'center',
       padding: '24px', fontFamily: 'var(--font-body)',
     }}>
@@ -238,7 +238,7 @@ const errorBannerStyle: React.CSSProperties = {
   display: 'flex', alignItems: 'flex-start', gap: 10,
   padding: '12px 14px',
   background: '#fff3f0',
-  border: '1px solid #f5c6bb',
+  border: '1px solid var(--terra-soft)',
   borderRadius: 10,
   color: 'var(--terra-2)',
 }

@@ -621,7 +621,7 @@ export default function RoadmapPage() {
     : null
 
   if (loading) return (
-    <div style={{ minHeight: '100vh', background: '#ece9e2', display: 'grid', placeItems: 'center' }}>
+    <div style={{ minHeight: '100vh', background: 'var(--bg-deep)', display: 'grid', placeItems: 'center' }}>
       <div style={{ color: 'var(--ink-mute)', fontSize: 14 }}>Загружаем ваш прогресс...</div>
     </div>
   )
@@ -638,7 +638,7 @@ export default function RoadmapPage() {
         }
       `}</style>
 
-      <div style={{ background: '#ece9e2', minHeight: '100vh', padding: '20px 14px 56px' }}>
+      <div style={{ background: 'var(--bg-deep)', minHeight: '100vh', padding: '20px 14px 56px' }}>
         <div style={{ maxWidth: 1140, margin: '0 auto', background: 'var(--bg)', borderRadius: 20, overflow: 'clip', boxShadow: '0 24px 60px -20px rgba(20,18,16,.18), 0 0 0 1px rgba(20,18,16,.05)' }}>
           <TopBar xp={xp} streak={streak} completed={completed} userName={userName} onSignOut={handleSignOut} />
           <div style={{ padding: '24px 32px 36px', display: 'flex', flexDirection: 'column', gap: 14 }}>

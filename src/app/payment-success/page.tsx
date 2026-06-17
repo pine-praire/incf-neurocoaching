@@ -31,7 +31,7 @@ export default function PaymentSuccessPage() {
 
   return (
     <div style={{
-      minHeight: '100vh', background: '#ece9e2',
+      minHeight: '100vh', background: 'var(--bg-deep)',
       display: 'grid', placeItems: 'center', padding: 24,
     }}>
       <div style={{
