@@ -1,16 +1,42 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+
+const EyeIcon = ({ open }: { open: boolean }) => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    {open ? (
+      <>
+        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+        <circle cx="12" cy="12" r="3" />
+      </>
+    ) : (
+      <>
+        <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94" />
+        <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19" />
+        <line x1="1" y1="1" x2="23" y2="23" />
+      </>
+    )}
+  </svg>
+)
 
 export default function ResetPasswordPage() {
   const router = useRouter()
   const [password, setPassword] = useState('')
   const [confirm, setConfirm] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
+  const [showConfirm, setShowConfirm] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [done, setDone] = useState(false)
+  const [userEmail, setUserEmail] = useState<string | null>(null)
+
+  useEffect(() => {
+    createClient().auth.getUser().then(({ data }) => {
+      if (data.user?.email) setUserEmail(data.user.email)
+    })
+  }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -35,6 +61,7 @@ export default function ResetPasswordPage() {
     }
 
     setDone(true)
+    fetch('/api/auth/password-changed-notify', { method: 'POST' }).catch(() => {})
     setTimeout(() => router.replace('/roadmap?session=start'), 2000)
   }
 
@@ -81,16 +108,37 @@ export default function ResetPasswordPage() {
           </div>
         ) : (
           <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            <input
-              type="password" value={password} onChange={e => setPassword(e.target.value)}
-              placeholder="Новый пароль" required minLength={8}
-              style={inputStyle}
-            />
-            <input
-              type="password" value={confirm} onChange={e => setConfirm(e.target.value)}
-              placeholder="Повторите пароль" required
-              style={inputStyle}
-            />
+            {userEmail && (
+              <p style={{
+                fontSize: 13, color: 'var(--ink-soft)', margin: 0,
+                padding: '9px 14px', background: 'var(--bg-deep)',
+                border: '1px solid var(--line)', borderRadius: 10,
+              }}>
+                {userEmail}
+              </p>
+            )}
+            <div style={fieldWrapStyle}>
+              <input
+                type={showPassword ? 'text' : 'password'}
+                value={password} onChange={e => setPassword(e.target.value)}
+                placeholder="Новый пароль" required minLength={8}
+                style={{ ...inputStyle, paddingRight: 42 }}
+              />
+              <button type="button" onClick={() => setShowPassword(v => !v)} style={eyeStyle} aria-label={showPassword ? 'Скрыть пароль' : 'Показать пароль'}>
+                <EyeIcon open={showPassword} />
+              </button>
+            </div>
+            <div style={fieldWrapStyle}>
+              <input
+                type={showConfirm ? 'text' : 'password'}
+                value={confirm} onChange={e => setConfirm(e.target.value)}
+                placeholder="Повторите пароль" required
+                style={{ ...inputStyle, paddingRight: 42 }}
+              />
+              <button type="button" onClick={() => setShowConfirm(v => !v)} style={eyeStyle} aria-label={showConfirm ? 'Скрыть пароль' : 'Показать пароль'}>
+                <EyeIcon open={showConfirm} />
+              </button>
+            </div>
             {error && <p style={errorStyle}>{error}</p>}
             <button type="submit" disabled={loading} style={submitStyle(loading)}>
               {loading ? 'Сохраняем...' : 'Сохранить пароль'}
@@ -102,11 +150,25 @@ export default function ResetPasswordPage() {
   )
 }
 
+const fieldWrapStyle: React.CSSProperties = {
+  position: 'relative',
+  display: 'flex',
+  alignItems: 'center',
+}
+
 const inputStyle: React.CSSProperties = {
   padding: '11px 14px', fontSize: 14, fontFamily: 'var(--font-body)',
   color: 'var(--ink)', background: 'var(--bg-deep)',
   border: '1px solid var(--line)', borderRadius: 10,
   outline: 'none', width: '100%', boxSizing: 'border-box',
+}
+
+const eyeStyle: React.CSSProperties = {
+  position: 'absolute', right: 12,
+  background: 'none', border: 'none', padding: 0,
+  cursor: 'pointer', color: 'var(--ink-soft)',
+  display: 'flex', alignItems: 'center',
+  lineHeight: 1,
 }
 
 const errorStyle: React.CSSProperties = {
