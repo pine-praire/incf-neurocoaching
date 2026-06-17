@@ -122,7 +122,7 @@ export function BonusGrid({ testDone }: { testDone: boolean }) {
   const cards = [
     { emoji: '⚡', tag: 'Бонус за раннее решение', title: 'Примите решение о L1 до конца курса', body: '+ 5% к любому тарифу.', tone: 'terra' as const, cta: 'Узнать подробнее', href: 'https://incf.eu', locked: false },
     { emoji: '📅', tag: 'После итогового теста', title: 'Бесплатная диагностика 30 минут', body: 'Разбор вашей точки А и плана из 3 шагов. Открывается после прохождения теста.', tone: 'sage' as const, cta: 'Забронировать слот', href: 'https://t.me/incf_team', locked: !testDone },
-    { emoji: '📚', tag: 'Дополнительные материалы', title: 'Пять препятствий на пути коуча', body: 'Лекция Александры Болдиной + чек-листы + статья про компетенции INCF.', tone: 'sage' as const, cta: 'Открыть материалы', href: 'https://incf.getcourse.ru/teach/control/stream/view/id/935616817', locked: false },
+    { emoji: '📚', tag: 'Дополнительные материалы', title: 'Пять препятствий на пути коуча', body: 'Лекция Александры Болдиной + чек-листы + статья про компетенции INCF.', tone: 'sage' as const, cta: 'Открыть материалы', href: 'https://incf.getcourse.ru/pl/teach/control/lesson/view?id=348170356', locked: false },
   ]
   const tones = { terra: { bg: 'var(--terra-tint)', ink: 'var(--terra-2)' }, sage: { bg: 'var(--sage-tint)', ink: 'var(--sage-2)' }, gold: { bg: 'var(--gold-tint)', ink: 'var(--gold-2)' } }
   return (
