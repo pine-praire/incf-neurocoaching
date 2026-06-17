@@ -33,6 +33,7 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [errorField, setErrorField] = useState<'email' | 'password' | null>(null)
 
   const [forgotMode, setForgotMode] = useState(false)
   const [forgotSent, setForgotSent] = useState(false)
@@ -43,6 +44,7 @@ export default function LoginPage() {
     e.preventDefault()
     setLoading(true)
     setError(null)
+    setErrorField(null)
 
     const supabase = createClient()
     const { error: signInError } = await supabase.auth.signInWithPassword({ email, password })
@@ -54,7 +56,13 @@ export default function LoginPage() {
         body: JSON.stringify({ email }),
       })
       const checkJson = await checkRes.json().catch(() => ({}))
-      setError(checkJson.enrolled === false ? NOT_ENROLLED_MSG : WRONG_PASSWORD_MSG)
+      if (checkJson.enrolled === false) {
+        setError(NOT_ENROLLED_MSG)
+        setErrorField('email')
+      } else {
+        setError(WRONG_PASSWORD_MSG)
+        setErrorField('password')
+      }
       setLoading(false)
       return
     }
@@ -136,7 +144,12 @@ export default function LoginPage() {
                 placeholder="твой@email.com" required
                 style={inputStyle}
               />
-              {forgotError && <p style={errorStyle}>{forgotError}</p>}
+              {forgotError && (
+                <div style={errorBannerStyle}>
+                  <span style={{ fontSize: 15, flexShrink: 0 }}>⚠️</span>
+                  <p style={{ margin: 0, fontSize: 13, lineHeight: 1.5 }}>{forgotError}</p>
+                </div>
+              )}
               <button type="submit" disabled={forgotLoading} style={submitStyle(forgotLoading)}>
                 {forgotLoading ? 'Отправляем...' : 'Восстановить доступ'}
               </button>
@@ -148,28 +161,31 @@ export default function LoginPage() {
         ) : (
           <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             <input
-              type="email" value={email} onChange={e => setEmail(e.target.value)}
+              type="email" value={email} onChange={e => { setEmail(e.target.value); setError(null); setErrorField(null) }}
               placeholder="твой@email.com" required
-              style={inputStyle}
+              style={{ ...inputStyle, ...(errorField === 'email' ? errorBorderStyle : {}) }}
             />
             <div style={fieldWrapStyle}>
               <input
                 type={showPassword ? 'text' : 'password'}
-                value={password} onChange={e => setPassword(e.target.value)}
+                value={password} onChange={e => { setPassword(e.target.value); setError(null); setErrorField(null) }}
                 placeholder="Пароль" required
-                style={{ ...inputStyle, paddingRight: 42 }}
+                style={{ ...inputStyle, paddingRight: 42, ...(errorField === 'password' ? errorBorderStyle : {}) }}
               />
               <button type="button" onClick={() => setShowPassword(v => !v)} style={eyeStyle} aria-label={showPassword ? 'Скрыть пароль' : 'Показать пароль'}>
                 <EyeIcon open={showPassword} />
               </button>
             </div>
             {error && (
-              <p style={errorStyle}>{error}</p>
+              <div style={errorBannerStyle}>
+                <span style={{ fontSize: 15, flexShrink: 0 }}>⚠️</span>
+                <p style={{ margin: 0, fontSize: 13, lineHeight: 1.5 }}>{error}</p>
+              </div>
             )}
             <button type="submit" disabled={loading} style={submitStyle(loading)}>
               {loading ? 'Входим...' : 'Войти'}
             </button>
-            <button type="button" onClick={() => { setForgotMode(true); setError(null) }} style={linkButtonStyle}>
+            <button type="button" onClick={() => { setForgotMode(true); setError(null); setErrorField(null) }} style={linkButtonStyle}>
               Забыли пароль? Восстановить доступ
             </button>
           </form>
@@ -214,8 +230,17 @@ const inputStyle: React.CSSProperties = {
   outline: 'none', width: '100%', boxSizing: 'border-box',
 }
 
-const errorStyle: React.CSSProperties = {
-  fontSize: 12.5, color: 'var(--terra-2)', margin: 0, lineHeight: 1.5,
+const errorBorderStyle: React.CSSProperties = {
+  border: '1.5px solid var(--terra-2)',
+}
+
+const errorBannerStyle: React.CSSProperties = {
+  display: 'flex', alignItems: 'flex-start', gap: 10,
+  padding: '12px 14px',
+  background: '#fff3f0',
+  border: '1px solid #f5c6bb',
+  borderRadius: 10,
+  color: 'var(--terra-2)',
 }
 
 const submitStyle = (loading: boolean): React.CSSProperties => ({
