@@ -7,6 +7,8 @@ import { generateTempPassword } from "@/lib/auth-utils"
 
 export const runtime = "nodejs"
 
+const PAID_STATUSES = new Set(['Завершен', 'paid'])
+
 class WebhookValidationError extends Error {}
 
 // When createUser fails with "already registered" it means the auth user was
@@ -96,6 +98,15 @@ export async function POST(request: Request) {
   try {
     if (!payload.email) throw new WebhookValidationError("Missing email")
     if (!payload.order_id) throw new WebhookValidationError("Missing order_id")
+    if (payload.payment_status && !PAID_STATUSES.has(payload.payment_status)) {
+      if (eventLog?.id) {
+        await supabase.from("webhook_events").update({
+          processed_at: new Date().toISOString(),
+          error: `skipped:unpaid_status:${payload.payment_status}`,
+        }).eq("id", eventLog.id)
+      }
+      return NextResponse.json({ ok: true })
+    }
 
     const email = normalizeEmail(payload.email)
     const courseId =
