@@ -141,7 +141,7 @@ export default function LoginPage() {
               </p>
               <input
                 type="email" value={email} onChange={e => setEmail(e.target.value)}
-                placeholder="твой@email.com" required
+                placeholder="ваш@email.com" required
                 style={inputStyle}
               />
               {forgotError && (
@@ -162,7 +162,7 @@ export default function LoginPage() {
           <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             <input
               type="email" value={email} onChange={e => { setEmail(e.target.value); setError(null); setErrorField(null) }}
-              placeholder="твой@email.com" required
+              placeholder="ваш@email.com" required
               style={{ ...inputStyle, ...(errorField === 'email' ? errorBorderStyle : {}) }}
             />
             <div style={fieldWrapStyle}>
