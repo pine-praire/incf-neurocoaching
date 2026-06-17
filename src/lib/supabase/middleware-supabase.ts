@@ -12,14 +12,16 @@ export async function updateSession(request: NextRequest) {
         getAll() {
           return request.cookies.getAll()
         },
-        setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value }) =>
-            request.cookies.set(name, value)
-          )
+        setAll(cookiesToSet, headers) {
           supabaseResponse = NextResponse.next({ request })
           cookiesToSet.forEach(({ name, value, options }) =>
             supabaseResponse.cookies.set(name, value, options)
           )
+          if (headers) {
+            Object.entries(headers).forEach(([key, value]) =>
+              supabaseResponse.headers.set(key, value)
+            )
+          }
         },
       },
     }
@@ -27,7 +29,8 @@ export async function updateSession(request: NextRequest) {
 
   const { data: { user } } = await supabase.auth.getUser()
 
-  const isAppRoute = request.nextUrl.pathname.startsWith('/roadmap') ||
+  const isAppRoute =
+    request.nextUrl.pathname.startsWith('/roadmap') ||
     request.nextUrl.pathname.startsWith('/profile')
 
   if (isAppRoute && !user) {
