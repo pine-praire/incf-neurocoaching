@@ -7,6 +7,7 @@ import { resolve } from 'path'
 
 vi.mock('@/lib/supabase/admin', () => ({ createSupabaseAdminClient: vi.fn() }))
 vi.mock('@/lib/auth-utils', () => ({ generateTempPassword: vi.fn(() => 'Test-Pass-Sec1') }))
+vi.mock('@/lib/brevo', () => ({ sendWelcomeEmail: vi.fn().mockResolvedValue(undefined) }))
 
 import { POST } from '@/app/api/getcourse/purchase-webhook/route'
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'

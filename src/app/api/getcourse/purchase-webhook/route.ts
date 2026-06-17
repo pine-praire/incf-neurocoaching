@@ -203,11 +203,7 @@ export async function POST(request: Request) {
 
     if (existingProfile === null) {
       try {
-        if (process.env.EMAILS_ENABLED === 'true') {
-          await sendWelcomeEmail(email, tempPassword)
-        } else {
-          console.log('[email] suppressed — EMAILS_ENABLED is not true')
-        }
+        await sendWelcomeEmail(email, tempPassword)
       } catch (emailErr) {
         console.error('[email] sendWelcomeEmail failed:', emailErr)
         if (eventLog?.id) {

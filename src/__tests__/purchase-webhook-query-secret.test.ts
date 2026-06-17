@@ -13,6 +13,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 vi.mock('@/lib/supabase/admin', () => ({ createSupabaseAdminClient: vi.fn() }))
 vi.mock('@/lib/auth-utils', () => ({ generateTempPassword: vi.fn(() => 'Test-Pass-QS12') }))
+vi.mock('@/lib/brevo', () => ({ sendWelcomeEmail: vi.fn().mockResolvedValue(undefined) }))
 
 import { POST } from '@/app/api/getcourse/purchase-webhook/route'
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
