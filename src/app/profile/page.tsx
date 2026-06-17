@@ -17,7 +17,7 @@ export default async function ProfilePage() {
     .from('certificates')
     .select('cert_number, issued_at')
     .eq('user_id', user.id)
-    .single()
+    .maybeSingle()
 
   const completedLessons = (progressRows ?? []).filter(
     p => LESSONS.some(l => l.id === p.step_id) || FINALS.some(f => f.id === p.step_id)
