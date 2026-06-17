@@ -4,6 +4,7 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin"
 import type { GetCoursePurchasePayload } from "@/lib/getcourse/types"
 import { getCourseIdByOfferId, getCourseIdByProductId } from "@/lib/getcourse/access-map"
 import { generateTempPassword } from "@/lib/auth-utils"
+import { sendWelcomeEmail } from "@/lib/brevo"
 
 export const runtime = "nodejs"
 
@@ -134,6 +135,7 @@ export async function POST(request: Request) {
       .eq("email", email)
       .maybeSingle()
 
+    const tempPassword = generateTempPassword()
     let userId: string
 
     if (existingProfile) {
@@ -141,7 +143,7 @@ export async function POST(request: Request) {
     } else {
       const { data: createData, error: createError } = await supabase.auth.admin.createUser({
         email,
-        password: generateTempPassword(),
+        password: tempPassword,
         email_confirm: true,
         user_metadata: {
           getcourse_user_id: payload.getcourse_user_id,
@@ -198,6 +200,24 @@ export async function POST(request: Request) {
       starts_at: new Date().toISOString(),
     }, { onConflict: "user_id,course_id" })
     if (enrollErr) throw enrollErr
+
+    if (existingProfile === null) {
+      try {
+        if (process.env.EMAILS_ENABLED === 'true') {
+          await sendWelcomeEmail(email, tempPassword)
+        } else {
+          console.log('[email] suppressed — EMAILS_ENABLED is not true')
+        }
+      } catch (emailErr) {
+        console.error('[email] sendWelcomeEmail failed:', emailErr)
+        if (eventLog?.id) {
+          await supabase.from('webhook_events').update({
+            error: `email_failed: ${emailErr instanceof Error ? emailErr.message : String(emailErr)}`
+          }).eq('id', eventLog.id)
+          // Намеренно НЕ трогаем processed_at — enrollment создан успешно
+        }
+      }
+    }
 
     if (eventLog?.id) {
       await supabase.from("webhook_events").update({
