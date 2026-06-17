@@ -152,4 +152,36 @@ describe('BonusGrid', () => {
     const lockBadge = screen.queryByText(/заблокировано/)
     expect(lockBadge).toBeNull()
   })
+
+  it('«Открыть материалы» renders as <a> with the correct GetCourse href', () => {
+    const { container } = render(<BonusGrid testDone={false} />)
+    const links = Array.from(container.querySelectorAll('a'))
+    const materialsLink = links.find(a => a.textContent?.includes('Открыть материалы'))
+    expect(materialsLink).toBeTruthy()
+    expect(materialsLink!.href).toBe('https://incf.getcourse.ru/teach/control/stream/view/id/935616817')
+  })
+
+  it('«Открыть материалы» link opens in a new tab', () => {
+    const { container } = render(<BonusGrid testDone={false} />)
+    const links = Array.from(container.querySelectorAll('a'))
+    const materialsLink = links.find(a => a.textContent?.includes('Открыть материалы'))
+    expect(materialsLink!.getAttribute('target')).toBe('_blank')
+    expect(materialsLink!.getAttribute('rel')).toBe('noopener noreferrer')
+  })
+
+  it('«Забронировать слот» is an <a> tag when testDone=true', () => {
+    const { container } = render(<BonusGrid testDone={true} />)
+    const links = Array.from(container.querySelectorAll('a'))
+    const slotLink = links.find(a => a.textContent?.includes('Забронировать слот'))
+    expect(slotLink).toBeTruthy()
+  })
+
+  it('«Забронировать слот» is a disabled <button> when testDone=false', () => {
+    const { container } = render(<BonusGrid testDone={false} />)
+    const links = Array.from(container.querySelectorAll('a'))
+    const slotLink = links.find(a => a.textContent?.includes('Забронировать слот'))
+    expect(slotLink).toBeUndefined()
+    const btn = screen.getByText(/Забронировать слот/)
+    expect(btn.tagName.toLowerCase()).toBe('button')
+  })
 })

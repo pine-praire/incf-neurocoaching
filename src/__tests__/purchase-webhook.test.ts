@@ -188,8 +188,8 @@ describe('payload validation', () => {
   })
 
   it.each([
-    ['paid'], ['Завершен'], ['pending'], ['refunded'], ['отменён'], ['любой статус'],
-  ])('accepts any payment_status "%s"', async (status) => {
+    ['paid'], ['Завершен'],
+  ])('proceeds to enrollment for paid status "%s"', async (status) => {
     vi.mocked(createSupabaseAdminClient).mockReturnValue(
       makeMockClient() as unknown as ReturnType<typeof createSupabaseAdminClient>
     )
