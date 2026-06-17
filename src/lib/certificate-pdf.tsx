@@ -13,13 +13,13 @@ const s = StyleSheet.create({
   border: {
     position: 'absolute',
     top: 20, left: 20, right: 20, bottom: 20,
-    border: '2pt solid #c96442',
+    border: '2pt solid #4a7c8e',
     borderRadius: 8,
   },
   innerBorder: {
     position: 'absolute',
     top: 26, left: 26, right: 26, bottom: 26,
-    border: '0.5pt solid #c96442',
+    border: '0.5pt solid #4a7c8e',
     borderRadius: 6,
     opacity: 0.4,
   },
@@ -31,7 +31,7 @@ const s = StyleSheet.create({
   badge: {
     width: 52,
     height: 52,
-    backgroundColor: '#c96442',
+    backgroundColor: '#4a7c8e',
     borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
@@ -45,7 +45,7 @@ const s = StyleSheet.create({
   org: {
     fontSize: 9,
     letterSpacing: 2.5,
-    color: '#c96442',
+    color: '#4a7c8e',
     fontFamily: 'Helvetica-Bold',
     textTransform: 'uppercase',
     marginBottom: 4,
@@ -53,14 +53,14 @@ const s = StyleSheet.create({
   dividerTop: {
     width: 40,
     height: 1.5,
-    backgroundColor: '#c96442',
+    backgroundColor: '#4a7c8e',
     marginTop: 10,
     opacity: 0.5,
   },
   title: {
     fontSize: 32,
     fontFamily: 'Helvetica-Bold',
-    color: '#1c2233',
+    color: '#1a1a1a',
     textAlign: 'center',
     letterSpacing: 1,
     marginTop: 18,
@@ -84,14 +84,14 @@ const s = StyleSheet.create({
   name: {
     fontSize: 30,
     fontFamily: 'Helvetica-Bold',
-    color: '#1c2233',
+    color: '#1a1a1a',
     textAlign: 'center',
     marginVertical: 14,
     letterSpacing: 0.5,
   },
   courseLine: {
     fontSize: 14,
-    color: '#1c2233',
+    color: '#1a1a1a',
     textAlign: 'center',
     fontFamily: 'Helvetica-Bold',
     marginBottom: 4,
