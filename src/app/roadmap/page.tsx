@@ -452,7 +452,8 @@ function RoadmapStamp({ stamp, completed, nextId, isLocked, onOpen, onFinalTest,
   }
 
   const rot = kind === 'badge' ? 'rotate(-4deg)' : kind === 'cert' ? 'rotate(2deg)' : 'none'
-  const label = kind === 'lesson' && lesson ? (lesson.title.length > 26 ? lesson.title.slice(0, 24) + '…' : lesson.title) : stamp.label ?? ''
+  const rawLabel = kind === 'lesson' && lesson ? `${lesson.n}. ${lesson.title}` : stamp.label ?? ''
+  const label = kind === 'lesson' && lesson && rawLabel.length > 26 ? rawLabel.slice(0, 24) + '…' : rawLabel
 
   return (
     <button
