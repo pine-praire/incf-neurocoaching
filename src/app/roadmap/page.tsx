@@ -515,7 +515,6 @@ export default function RoadmapPage() {
   const xp = computeXP(completed)
 
   const handleSignOut = useCallback(async () => {
-    sessionStorage.removeItem('incf_active')
     await createClient().auth.signOut()
     window.location.href = '/login'
   }, [])
@@ -523,13 +522,7 @@ export default function RoadmapPage() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
     if (params.get('session') === 'start') {
-      sessionStorage.setItem('incf_active', '1')
       window.history.replaceState({}, '', '/roadmap')
-    } else if (!sessionStorage.getItem('incf_active')) {
-      createClient().auth.signOut().then(() => {
-        window.location.href = '/login'
-      })
-      return
     }
 
     loadProgress()
