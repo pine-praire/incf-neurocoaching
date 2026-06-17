@@ -158,7 +158,7 @@ describe('BonusGrid', () => {
     const links = Array.from(container.querySelectorAll('a'))
     const materialsLink = links.find(a => a.textContent?.includes('Открыть материалы'))
     expect(materialsLink).toBeTruthy()
-    expect(materialsLink!.href).toBe('https://incf.getcourse.ru/teach/control/stream/view/id/935616817')
+    expect(materialsLink!.href).toBe('https://incf.getcourse.ru/pl/teach/control/lesson/view?id=348170356')
   })
 
   it('«Открыть материалы» link opens in a new tab', () => {

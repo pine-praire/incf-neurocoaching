@@ -283,7 +283,7 @@ describe('password generation', () => {
     expect(generateTempPassword).toHaveBeenCalledOnce()
   })
 
-  it('generateTempPassword is NOT called when profile already exists', async () => {
+  it('generateTempPassword IS called (tempPassword computed before profile check)', async () => {
     const client = makeMockClient({ profileExists: true })
     vi.mocked(createSupabaseAdminClient).mockReturnValue(
       client as unknown as ReturnType<typeof createSupabaseAdminClient>
@@ -291,7 +291,9 @@ describe('password generation', () => {
 
     await POST(makeRequest(validBody(), { 'x-getcourse-secret': SECRET }))
 
-    expect(generateTempPassword).not.toHaveBeenCalled()
+    // tempPassword is now computed unconditionally before the existingProfile branch
+    // so createUser can reuse it — generateTempPassword is always called once
+    expect(generateTempPassword).toHaveBeenCalledTimes(1)
   })
 })
 
