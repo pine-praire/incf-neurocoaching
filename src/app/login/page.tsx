@@ -90,13 +90,13 @@ export default function LoginPage() {
 
   return (
     <div style={{
-      minHeight: '100vh', background: '#f2ede8',
+      minHeight: '100vh', background: '#fff',
       display: 'grid', placeItems: 'center',
       padding: '24px', fontFamily: 'var(--font-body)',
     }}>
       <div style={{
         width: '100%', maxWidth: 400,
-        background: 'var(--surface)', borderRadius: 18,
+        background: '#f2ede8', borderRadius: 18,
         boxShadow: 'var(--shadow-lg)', padding: '36px 32px',
         display: 'flex', flexDirection: 'column', gap: 20,
       }}>
