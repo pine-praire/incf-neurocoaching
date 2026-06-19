@@ -90,7 +90,7 @@ export default function LoginPage() {
 
   return (
     <div style={{
-      minHeight: '100vh', background: 'var(--bg-deep)',
+      minHeight: '100vh', background: '#f2ede8',
       display: 'grid', placeItems: 'center',
       padding: '24px', fontFamily: 'var(--font-body)',
     }}>
@@ -220,7 +220,7 @@ const eyeStyle: React.CSSProperties = {
 
 const inputStyle: React.CSSProperties = {
   padding: '11px 14px', fontSize: 14, fontFamily: 'var(--font-body)',
-  color: 'var(--ink)', background: 'var(--bg-deep)',
+  color: 'var(--ink)', background: '#f2ede8',
   border: '1px solid var(--line)', borderRadius: 10,
   outline: 'none', width: '100%', boxSizing: 'border-box',
 }
