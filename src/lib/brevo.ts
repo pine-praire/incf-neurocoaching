@@ -232,6 +232,85 @@ export async function sendWelcomeEmail(email: string, password: string): Promise
   }
 }
 
+export async function sendAlreadyEnrolledEmail(email: string): Promise<void> {
+  const apiKey = process.env.BREVO_API_KEY
+  if (!apiKey) throw new Error('Missing BREVO_API_KEY')
+
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://incf-neurocoaching.vercel.app'
+
+  const htmlContent = `
+<!DOCTYPE html>
+<html lang="ru">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#ece9e2;font-family:sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#ece9e2;padding:40px 0;">
+    <tr><td align="center">
+      <table width="520" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:18px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,.08);">
+        <tr><td align="center" style="background:#1a1a1a;padding:32px 40px 28px;">
+          <div style="width:52px;height:52px;border-radius:12px;background:#4a7c8e;display:inline-flex;align-items:center;justify-content:center;margin-bottom:14px;">
+            <span style="color:#fff;font-size:24px;font-weight:700;line-height:1;">i</span>
+          </div>
+          <div style="font-size:11px;letter-spacing:2px;color:#4a7c8e;text-transform:uppercase;font-weight:700;margin-bottom:4px;">INCF</div>
+          <div style="font-size:18px;color:#fff;font-weight:600;">Введение в нейрокоучинг</div>
+        </td></tr>
+        <tr><td style="padding:36px 40px;">
+          <p style="margin:0 0 16px;font-size:15px;color:#333;line-height:1.7;font-weight:600;">
+            У вас уже есть доступ к платформе
+          </p>
+          <p style="margin:0 0 16px;font-size:14px;color:#666;line-height:1.7;">
+            Ваш аккаунт на платформе INCF уже активен. Войдите с помощью email и пароля, которые вы использовали ранее.
+          </p>
+          <p style="margin:0 0 28px;font-size:14px;color:#666;line-height:1.7;">
+            Если не помните пароль — воспользуйтесь функцией восстановления на странице входа.
+          </p>
+        </td></tr>
+        <tr><td align="center" style="padding:0 40px 20px;">
+          <a href="${siteUrl}/login" style="display:inline-block;background:#4a7c8e;color:#fff;text-decoration:none;padding:14px 36px;border-radius:999px;font-size:15px;font-weight:600;">
+            Войти на платформу
+          </a>
+        </td></tr>
+        <tr><td align="center" style="padding:0 40px 36px;">
+          <a href="${siteUrl}/login" style="font-size:13px;color:#4a7c8e;text-decoration:none;">
+            Забыли пароль? Восстановить доступ →
+          </a>
+        </td></tr>
+        <tr><td style="padding:0 40px 28px;">
+          <p style="margin:0;font-size:13px;color:#666;line-height:1.6;">
+            Если что-то не работает — напишите нам в Telegram:
+            <a href="https://t.me/incf_team" style="color:#4a7c8e;font-weight:600;">@incf_team</a>
+          </p>
+        </td></tr>
+        <tr><td style="background:#f5f3f0;padding:20px 40px;border-top:1px solid #e8e4de;">
+          <p style="margin:0;font-size:12px;color:#aaa;text-align:center;line-height:1.6;">
+            INCF — International Neuro Coaching Federation<br>
+            <a href="https://incf.eu" style="color:#aaa;">incf.eu</a>
+          </p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`
+
+  const body = {
+    sender: { name: 'INCF Нейрокоучинг', email: 'noreply@incf.eu' },
+    to: [{ email }],
+    subject: 'У вас уже есть доступ к платформе INCF',
+    htmlContent,
+  }
+
+  const res = await fetch(BREVO_API_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'api-key': apiKey },
+    body: JSON.stringify(body),
+  })
+
+  if (!res.ok) {
+    const text = await res.text()
+    throw new Error(`Brevo API error ${res.status}: ${text}`)
+  }
+}
+
 export async function sendCertificateEmail(
   email: string,
   name: string,

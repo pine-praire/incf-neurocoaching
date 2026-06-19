@@ -102,12 +102,7 @@ export default function LoginPage() {
       }}>
         {/* Logo */}
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
-          <div style={{
-            width: 48, height: 48, borderRadius: 12,
-            background: 'var(--terra-2)', color: '#fff',
-            display: 'grid', placeItems: 'center',
-            fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 22,
-          }}>i</div>
+          <img src="/incf-logo.png" alt="INCF" style={{ width: 80, height: 80, objectFit: 'contain' }} />
           <h1 style={{
             fontFamily: 'var(--font-display)', fontSize: 20, fontWeight: 600,
             color: 'var(--ink)', margin: 0, textAlign: 'center',

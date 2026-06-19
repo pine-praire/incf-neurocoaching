@@ -4,7 +4,7 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin"
 import type { GetCoursePurchasePayload } from "@/lib/getcourse/types"
 import { getCourseIdByOfferId, getCourseIdByProductId } from "@/lib/getcourse/access-map"
 import { generateTempPassword } from "@/lib/auth-utils"
-import { sendWelcomeEmail } from "@/lib/brevo"
+import { sendWelcomeEmail, sendAlreadyEnrolledEmail } from "@/lib/brevo"
 
 export const runtime = "nodejs"
 
@@ -212,6 +212,12 @@ export async function POST(request: Request) {
           }).eq('id', eventLog.id)
           // Намеренно НЕ трогаем processed_at — enrollment создан успешно
         }
+      }
+    } else {
+      try {
+        await sendAlreadyEnrolledEmail(email)
+      } catch (emailErr) {
+        console.error('[email] sendAlreadyEnrolledEmail failed:', emailErr)
       }
     }
 

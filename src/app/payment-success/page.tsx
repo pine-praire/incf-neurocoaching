@@ -11,22 +11,20 @@ export default function PaymentSuccessPage() {
     setStatus('loading')
     setMessage('')
 
-    const res = await fetch('/api/auth/resend-magic-link', {
+    const res = await fetch('/api/auth/forgot-password', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email }),
     })
 
-    const data = await res.json()
-
     if (!res.ok) {
       setStatus('error')
-      setMessage(data.error ?? 'Не удалось отправить ссылку')
+      setMessage('Не удалось отправить письмо. Попробуйте позже.')
       return
     }
 
     setStatus('success')
-    setMessage('Если доступ активен, ссылка для входа отправлена на email.')
+    setMessage('Если доступ активен, инструкции для входа отправлены на email.')
   }
 
   return (
@@ -54,13 +52,13 @@ export default function PaymentSuccessPage() {
         }}>Оплата прошла успешно</h1>
 
         <p style={{ fontSize: 14, color: 'var(--ink-soft)', lineHeight: 1.6, margin: '0 0 8px' }}>
-          Мы открываем доступ к платформе и отправляем ссылку для входа на email,
+          Мы открываем доступ к платформе и отправляем письмо с данными для входа на email,
           который был указан при покупке.
         </p>
 
         <p style={{ fontSize: 14, color: 'var(--ink-soft)', lineHeight: 1.6, margin: '0 0 28px' }}>
           Если письмо не пришло в течение нескольких минут — проверьте папку «Спам»
-          или отправьте ссылку повторно ниже.
+          или запросите инструкции для входа повторно ниже.
         </p>
 
         <div style={{ borderTop: '1px solid var(--line)', paddingTop: 24 }}>
@@ -97,7 +95,7 @@ export default function PaymentSuccessPage() {
                 opacity: status === 'loading' ? 0.7 : 1,
               }}
             >
-              {status === 'loading' ? 'Отправляем...' : 'Отправить ссылку для входа'}
+              {status === 'loading' ? 'Отправляем...' : 'Отправить инструкции для входа'}
             </button>
           </form>
 
