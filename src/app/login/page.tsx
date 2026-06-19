@@ -96,7 +96,7 @@ export default function LoginPage() {
     }}>
       <div style={{
         width: '100%', maxWidth: 400,
-        background: '#f2ede8', borderRadius: 18,
+        background: '#faf7f5', borderRadius: 18,
         boxShadow: 'var(--shadow-lg)', padding: '36px 32px',
         display: 'flex', flexDirection: 'column', gap: 20,
       }}>
